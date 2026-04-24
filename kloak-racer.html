@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kloak-Racer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #1a0a02; }
+  body { touch-action: none; position: fixed; width: 100%; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: -webkit-optimize-contrast; }
+
+  #hud {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+    gap: 6px;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 16px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.55), rgba(0,0,0,0.9));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+  .controls-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,249,230,0.9);
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 14px;
+    color: #3b2509;
+    font-weight: 600;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="score-card">🧻 <span id="papers">0</span></div>
+    <div class="score-card">📏 <span id="dist">0</span> m</div>
+    <div class="score-card">🏆 <span id="high">0</span></div>
+  </div>
+  <div class="controls-hint" id="hint">📱 TAP for at hoppe · hold nede for at dukke</div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>KLOAK<br>RACER</h1>
+    <p>Kør din scooter 🛵 gennem kloakken!<br>Saml toiletpapir 🧻 og undvig rotter 🐀, rør og spindelvæv.<br><br>🖱️ KLIK/TAP eller MELLEMRUM for at hoppe<br>⬇️ HOLD NEDE eller PIL NED for at dukke</p>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">💥</div>
+    <h1>KRASH!</h1>
+    <p id="go-text">Du kørte i <b><span id="final">0</span> m</b><br>og samlede <b><span id="final-papers">0</span> ruller</b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">PRØV IGEN</button>
+  </div>
+</div>
+<style>
+  @keyframes spin { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+</style>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = window.innerWidth, H = window.innerHeight;
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const GROUND_Y = () => H * 0.78;
+const CEILING_Y = () => H * 0.22;
+
+// State
+let player = {
+  x: 100, y: 0, vy: 0, size: 64,
+  ducking: false, jumping: false, onGround: true
+};
+let obstacles = []; // { x, y, w, h, emoji, type }
+let collectibles = []; // { x, y, emoji }
+let particles = [];
+let distance = 0, papers = 0;
+let running = false;
+let speed = 6;
+let baseSpeed = 6;
+let lastSpawn = 0;
+let scrollX = 0;
+let highScore = parseInt(localStorage.getItem('racer_highscore') || '0', 10);
+document.getElementById('high').textContent = highScore;
+
+const papersEl = document.getElementById('papers');
+const distEl = document.getElementById('dist');
+const highEl = document.getElementById('high');
+const finalEl = document.getElementById('final');
+const finalPapers = document.getElementById('final-papers');
+const startOverlay = document.getElementById('start-overlay');
+const gameOverOverlay = document.getElementById('game-over-overlay');
+const newBest = document.getElementById('new-best');
+const goEmoji = document.getElementById('go-emoji');
+const hint = document.getElementById('hint');
+
+// input
+function jump() {
+  if (!running) return;
+  if (player.onGround) {
+    player.vy = -16;
+    player.onGround = false;
+    player.jumping = true;
+  } else if (player.vy > 0 && !player.doubleJumped) {
+    // allow a small double-jump boost
+    player.vy = -12;
+    player.doubleJumped = true;
+  }
+}
+function startDuck() { if (running) player.ducking = true; }
+function endDuck() { player.ducking = false; }
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+  if (e.code === 'ArrowDown') { e.preventDefault(); startDuck(); }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'ArrowDown') endDuck();
+});
+
+let touchStartY = 0, touchStartTime = 0, holdTimer = null;
+canvas.addEventListener('mousedown', (e) => { e.preventDefault(); jump(); });
+canvas.addEventListener('mouseup', (e) => { endDuck(); });
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  touchStartY = e.touches[0].clientY;
+  touchStartTime = performance.now();
+  // start a timer - if held more than 150ms, duck; else jump
+  holdTimer = setTimeout(() => {
+    startDuck();
+    holdTimer = null;
+  }, 140);
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const dy = e.touches[0].clientY - touchStartY;
+  if (dy > 30) {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    startDuck();
+  }
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    jump();
+  }
+  endDuck();
+});
+
+function spawnObstacle() {
+  // weighted pick based on distance
+  const roll = Math.random();
+  let type;
+  if (distance < 200) {
+    type = roll < 0.6 ? 'rat' : (roll < 0.85 ? 'puddle' : 'web');
+  } else if (distance < 600) {
+    type = roll < 0.35 ? 'rat' : roll < 0.55 ? 'puddle' : roll < 0.80 ? 'web' : 'pipe';
+  } else {
+    type = roll < 0.25 ? 'rat' : roll < 0.45 ? 'puddle' : roll < 0.65 ? 'web' : roll < 0.85 ? 'pipe' : 'double';
+  }
+  if (type === 'rat') {
+    obstacles.push({ x: W + 50, y: GROUND_Y() - 20, w: 50, h: 40, emoji: '🐀', type, ground: true });
+  } else if (type === 'puddle') {
+    obstacles.push({ x: W + 50, y: GROUND_Y() - 10, w: 80, h: 20, emoji: '💧', type, ground: true, wide: true });
+  } else if (type === 'web') {
+    // ceiling hanging - must duck
+    obstacles.push({ x: W + 50, y: GROUND_Y() - 75, w: 60, h: 50, emoji: '🕸️', type, ceiling: true });
+  } else if (type === 'pipe') {
+    obstacles.push({ x: W + 50, y: GROUND_Y() - 50, w: 40, h: 60, emoji: '🟫', type, ground: true, tall: true });
+  } else if (type === 'double') {
+    obstacles.push({ x: W + 50, y: GROUND_Y() - 20, w: 50, h: 40, emoji: '🐀', type: 'rat', ground: true });
+    obstacles.push({ x: W + 150, y: GROUND_Y() - 75, w: 60, h: 50, emoji: '🕸️', type: 'web', ceiling: true });
+  }
+
+  // maybe spawn a paper
+  if (Math.random() < 0.6) {
+    const py = Math.random() < 0.5 ? GROUND_Y() - 50 : GROUND_Y() - 110; // low or high
+    collectibles.push({ x: W + 200 + Math.random()*120, y: py, emoji: '🧻' });
+  }
+  // sometimes rubber duck bonus
+  if (Math.random() < 0.12) {
+    collectibles.push({ x: W + 260, y: GROUND_Y() - 80, emoji: '🦆', bonus: 5 });
+  }
+}
+
+function addParticle(x, y, color) {
+  for (let i=0;i<6;i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random()-0.5)*6,
+      vy: -Math.random()*4 - 2,
+      life: 40,
+      color: color || '#ffd23f'
+    });
+  }
+}
+
+function aabb(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Background - sewer brick walls
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1a0a02');
+  g.addColorStop(0.4, '#3b2509');
+  g.addColorStop(0.6, '#2a1808');
+  g.addColorStop(1, '#100600');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Top area - brick wall pattern
+  const brickW = 60, brickH = 25;
+  const offsetX = -((scrollX * 0.3) % (brickW*2));
+  ctx.fillStyle = '#4a3018';
+  for (let y = 0; y < CEILING_Y(); y += brickH) {
+    const rowOffset = Math.floor(y / brickH) % 2 === 0 ? 0 : brickW/2;
+    for (let x = offsetX + rowOffset; x < W + brickW; x += brickW) {
+      ctx.fillRect(x, y, brickW - 3, brickH - 3);
+    }
+  }
+
+  // Pipe ceiling
+  ctx.fillStyle = '#2a1808';
+  ctx.fillRect(0, CEILING_Y(), W, 8);
+  ctx.fillStyle = '#100600';
+  for (let x = -scrollX % 100; x < W; x += 100) {
+    ctx.beginPath();
+    ctx.arc(x + 50, CEILING_Y() + 4, 14, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Ground - tile pattern
+  ctx.fillStyle = '#1a0a02';
+  ctx.fillRect(0, GROUND_Y() + 20, W, H - GROUND_Y());
+  ctx.fillStyle = '#3b2509';
+  ctx.fillRect(0, GROUND_Y() + 10, W, 14);
+  // ground lines scrolling
+  ctx.strokeStyle = '#ffd23f';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([20, 20]);
+  ctx.lineDashOffset = -scrollX;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y() + 17);
+  ctx.lineTo(W, GROUND_Y() + 17);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Distance markers - posts in background
+  ctx.fillStyle = '#5a3818';
+  for (let i = 0; i < 6; i++) {
+    const x = ((i * 200) - (scrollX * 0.5) % 200) % (W + 200);
+    ctx.fillRect(x, GROUND_Y() - 30, 4, 30);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(x - 6, GROUND_Y() - 30, 16, 8);
+    ctx.fillStyle = '#5a3818';
+  }
+
+  // Obstacles
+  for (const o of obstacles) {
+    ctx.save();
+    ctx.font = (o.wide ? 64 : 50) + 'px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 3;
+    if (o.type === 'pipe') {
+      ctx.fillStyle = '#6b4423';
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.fillStyle = '#8b5a3b';
+      ctx.fillRect(o.x - 4, o.y - 6, o.w + 8, 10);
+    } else if (o.type === 'puddle') {
+      ctx.font = '64px serif';
+      ctx.fillText('💧', o.x + o.w/2, o.y + o.h/2);
+      ctx.fillText('💩', o.x + o.w/2 - 20, o.y + o.h/2 + 2);
+    } else {
+      ctx.fillText(o.emoji, o.x + o.w/2, o.y + o.h/2);
+    }
+    ctx.restore();
+  }
+
+  // Collectibles
+  for (const c of collectibles) {
+    ctx.save();
+    ctx.font = (c.bonus ? '44px' : '38px') + ' serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = c.bonus ? 'rgba(255,210,63,0.9)' : 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = c.bonus ? 16 : 4;
+    const bob = Math.sin(performance.now()/200 + c.x) * 4;
+    ctx.fillText(c.emoji, c.x, c.y + bob);
+    ctx.restore();
+  }
+
+  // Particles
+  for (const p of particles) {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = Math.max(0, p.life / 40);
+    ctx.fillRect(p.x, p.y, 5, 5);
+  }
+  ctx.globalAlpha = 1;
+
+  // Player scooter
+  const size = player.ducking ? 42 : 64;
+  const yOffset = player.ducking ? 12 : 0;
+  ctx.save();
+  ctx.font = size + 'px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 4;
+  const rot = player.onGround ? 0 : (player.vy * 0.02);
+  ctx.translate(player.x, player.y + yOffset);
+  ctx.rotate(rot);
+  // Draw the poop riding scooter
+  ctx.fillText('💩', 0, -size*0.4);
+  ctx.fillText('🛵', 0, size*0.1);
+  ctx.restore();
+
+  // Player shadow
+  if (player.onGround || player.y < GROUND_Y() - 40) {
+    const shadowScale = player.onGround ? 1 : Math.max(0.3, 1 - (GROUND_Y() - player.y) / 200);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(player.x, GROUND_Y() + 12, 30 * shadowScale, 6 * shadowScale, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function update(dt) {
+  if (!running) return;
+
+  // speed up over time
+  speed = baseSpeed + Math.min(6, distance / 300);
+  scrollX += speed * dt;
+  distance += speed * dt * 0.2;
+  distEl.textContent = Math.floor(distance);
+
+  // Player physics
+  if (!player.onGround) {
+    player.vy += 0.85 * dt;
+    player.y += player.vy * dt;
+    if (player.y >= GROUND_Y() - player.size/2) {
+      player.y = GROUND_Y() - player.size/2;
+      player.vy = 0;
+      player.onGround = true;
+      player.jumping = false;
+      player.doubleJumped = false;
+      addParticle(player.x - 10, GROUND_Y() + 5, '#ffd23f');
+    }
+  }
+
+  // Spawn obstacles
+  lastSpawn += dt * 16;
+  const spawnInterval = Math.max(900, 2000 - distance * 1.2);
+  if (lastSpawn > spawnInterval) {
+    spawnObstacle();
+    lastSpawn = 0;
+  }
+
+  // Move obstacles / collectibles
+  for (const o of obstacles) o.x -= speed * dt;
+  obstacles = obstacles.filter(o => o.x + o.w > -20);
+  for (const c of collectibles) c.x -= speed * dt;
+  collectibles = collectibles.filter(c => c.x > -50);
+
+  // Particles
+  for (const p of particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 0.3 * dt;
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  // Player hitbox
+  const ph = player.ducking ? 30 : 62;
+  const pw = 50;
+  const pbox = { x: player.x - pw/2, y: player.y + (player.ducking ? 5 : 0) - ph/2 + 10, w: pw, h: ph };
+
+  // Collectibles collision
+  for (let i = collectibles.length-1; i >= 0; i--) {
+    const c = collectibles[i];
+    const cbox = { x: c.x - 20, y: c.y - 20, w: 40, h: 40 };
+    if (aabb(pbox, cbox)) {
+      papers += c.bonus || 1;
+      papersEl.textContent = papers;
+      addParticle(c.x, c.y, c.bonus ? '#ff4e6b' : '#fff9e6');
+      collectibles.splice(i, 1);
+    }
+  }
+
+  // Obstacle collision
+  for (const o of obstacles) {
+    const ox = o.x + 8, oy = o.y + 6, ow = o.w - 16, oh = o.h - 10;
+    if (aabb(pbox, { x: ox, y: oy, w: ow, h: oh })) {
+      // Ducking saves from ceiling obstacles
+      if (o.ceiling && player.ducking) continue;
+      // Jumping saves from ground obstacles (if high enough)
+      if (o.ground && !player.onGround && player.y < GROUND_Y() - o.h - 20) continue;
+      gameOver(o.emoji);
+      return;
+    }
+  }
+}
+
+let lastT = 0;
+function frame(t) {
+  const dt = Math.min(32, t - lastT) / 16;
+  lastT = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function start() {
+  running = true;
+  player.x = Math.min(120, W * 0.18);
+  player.y = GROUND_Y() - player.size/2;
+  player.vy = 0; player.onGround = true;
+  obstacles = []; collectibles = []; particles = [];
+  distance = 0; papers = 0;
+  papersEl.textContent = 0; distEl.textContent = 0;
+  scrollX = 0;
+  startOverlay.classList.add('hidden');
+  gameOverOverlay.classList.add('hidden');
+  newBest.classList.add('hidden');
+  document.body.classList.add('playing');
+  setTimeout(() => { hint.style.opacity = 0; }, 3000);
+}
+
+function gameOver(emoji) {
+  running = false;
+  goEmoji.textContent = emoji === '🕸️' ? '🕷️' : emoji === '💧' ? '💦' : '💥';
+  finalEl.textContent = Math.floor(distance);
+  finalPapers.textContent = papers;
+  const totalScore = Math.floor(distance) + papers * 10;
+  let isNew = false;
+  if (totalScore > highScore) {
+    highScore = totalScore;
+    highEl.textContent = highScore;
+    localStorage.setItem('racer_highscore', highScore);
+    isNew = totalScore > 0;
+  }
+  document.body.classList.remove('playing');
+  setTimeout(() => {
+    if (isNew) newBest.classList.remove('hidden');
+    gameOverOverlay.classList.remove('hidden');
+  }, 500);
+}
+
+document.getElementById('start-btn').onclick = start;
+document.getElementById('restart-btn').onclick = start;
+
+// init player position
+player.y = GROUND_Y() - player.size/2;
+</script>
+</body>
+</html>
