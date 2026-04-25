@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kloak-Putt</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #3b2509; }
+  body { touch-action: none; position: fixed; width: 100%; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: -webkit-optimize-contrast; }
+
+  #hud {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    z-index: 10;
+    pointer-events: none;
+    gap: 6px;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 14px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.55), rgba(0,0,0,0.9));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+  .controls-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,249,230,0.92);
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #3b2509;
+    font-weight: 600;
+    z-index: 10;
+    text-align: center;
+    max-width: 92vw;
+    transition: opacity 0.4s;
+  }
+  #hole-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-4deg);
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    border-radius: 16px;
+    padding: 18px 36px;
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(28px, 7vw, 44px);
+    color: #3b2509;
+    box-shadow: 6px 6px 0 #3b2509;
+    z-index: 50;
+    text-align: center;
+    pointer-events: none;
+  }
+  #hole-banner .sub {
+    display: block;
+    font-size: 0.55em;
+    margin-top: 6px;
+    color: #6b3a08;
+  }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="score-card">⛳ Hul <span id="hole-num">1</span>/9</div>
+    <div class="score-card">🏌️ Slag <span id="strokes">0</span></div>
+    <div class="score-card">🎯 Par <span id="par">0</span></div>
+    <div class="score-card">📊 Tot <span id="total">0</span></div>
+  </div>
+  <div class="controls-hint" id="hint">🖱️ Træk fra 💩 væk og slip for at slå · R = nulstil hul</div>
+  <div id="hole-banner" class="hidden"></div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>KLOAK<br>PUTT</h1>
+    <p>9 huller mini-golf i kloakken!<br>💩 = bold · 🚽 = hul<br><br>🖱️ Træk fra bolden væk og slip for at slå<br>💧 vand = straffeslag · 🟫 mure = bounce</p>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">🏆</div>
+    <h1 id="go-title">FÆRDIG!</h1>
+    <p id="go-text">Total: <b><span id="final-strokes">0</span> slag</b><br>Par: <b><span id="final-par">0</span></b><br>Score: <b><span id="final-score">0</span></b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">SPIL IGEN</button>
+  </div>
+</div>
+<style>
+  @keyframes spin { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+</style>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = window.innerWidth, H = window.innerHeight;
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  computeViewport();
+}
+
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+// ---------------------------------------------------------
+// Logical course coordinate system: 800 x 600.
+// We compute a transform to fit it into the viewport with letterboxing.
+// ---------------------------------------------------------
+const COURSE_W = 800;
+const COURSE_H = 600;
+let viewScale = 1;
+let viewOffX = 0;
+let viewOffY = 0;
+function computeViewport() {
+  // leave some space for HUD top + hint bottom
+  const padTop = 70, padBottom = 60, padSide = 16;
+  const availW = Math.max(120, W - padSide * 2);
+  const availH = Math.max(120, H - padTop - padBottom);
+  viewScale = Math.min(availW / COURSE_W, availH / COURSE_H);
+  const vw = COURSE_W * viewScale;
+  const vh = COURSE_H * viewScale;
+  viewOffX = (W - vw) / 2;
+  viewOffY = padTop + (availH - vh) / 2;
+}
+
+// Convert client (canvas-pixel) coordinates to course coordinates
+function clientToCourse(cx, cy) {
+  return {
+    x: (cx - viewOffX) / viewScale,
+    y: (cy - viewOffY) / viewScale
+  };
+}
+
+resize();
+window.addEventListener('resize', resize);
+
+// ---------------------------------------------------------
+// Hole layouts. Course is 800 x 600 in logical coords.
+// Outer walls (the playing-field border) are added automatically.
+// ---------------------------------------------------------
+const HOLES = [
+  // 1. straight short (par 2)
+  {
+    par: 2,
+    ballStart: { x: 120, y: 300 },
+    hole: { x: 680, y: 300 },
+    walls: [],
+    water: [],
+    sand: []
+  },
+  // 2. slight wall bend (par 3)
+  {
+    par: 3,
+    ballStart: { x: 110, y: 480 },
+    hole: { x: 690, y: 130 },
+    walls: [
+      { x: 280, y: 200, w: 240, h: 30 },
+      { x: 280, y: 380, w: 240, h: 30 }
+    ],
+    water: [],
+    sand: []
+  },
+  // 3. tight corridor (par 3)
+  {
+    par: 3,
+    ballStart: { x: 100, y: 300 },
+    hole: { x: 700, y: 300 },
+    walls: [
+      { x: 200, y: 100, w: 30, h: 170 },
+      { x: 200, y: 330, w: 30, h: 170 },
+      { x: 400, y: 100, w: 30, h: 170 },
+      { x: 400, y: 330, w: 30, h: 170 },
+      { x: 600, y: 100, w: 30, h: 170 },
+      { x: 600, y: 330, w: 30, h: 170 }
+    ],
+    water: [],
+    sand: []
+  },
+  // 4. small water hazard to navigate (par 3)
+  {
+    par: 3,
+    ballStart: { x: 110, y: 300 },
+    hole: { x: 690, y: 300 },
+    walls: [],
+    water: [
+      { x: 320, y: 220, w: 160, h: 160 }
+    ],
+    sand: []
+  },
+  // 5. dog-leg L shape (par 4)
+  {
+    par: 4,
+    ballStart: { x: 120, y: 500 },
+    hole: { x: 680, y: 110 },
+    walls: [
+      { x: 260, y: 140, w: 30, h: 320 },
+      { x: 260, y: 140, w: 280, h: 30 }
+    ],
+    water: [],
+    sand: [
+      { x: 540, y: 200, w: 100, h: 80 }
+    ]
+  },
+  // 6. multiple walls (par 4)
+  {
+    par: 4,
+    ballStart: { x: 90, y: 300 },
+    hole: { x: 710, y: 300 },
+    walls: [
+      { x: 200, y: 80, w: 30, h: 200 },
+      { x: 360, y: 320, w: 30, h: 200 },
+      { x: 520, y: 80, w: 30, h: 200 },
+      { x: 660, y: 380, w: 30, h: 140 }
+    ],
+    water: [],
+    sand: []
+  },
+  // 7. water + walls (par 4)
+  {
+    par: 4,
+    ballStart: { x: 100, y: 500 },
+    hole: { x: 700, y: 100 },
+    walls: [
+      { x: 240, y: 200, w: 30, h: 280 },
+      { x: 500, y: 120, w: 30, h: 280 }
+    ],
+    water: [
+      { x: 320, y: 100, w: 140, h: 90 },
+      { x: 560, y: 410, w: 140, h: 90 }
+    ],
+    sand: []
+  },
+  // 8. tight final approach (par 4)
+  {
+    par: 4,
+    ballStart: { x: 100, y: 100 },
+    hole: { x: 700, y: 500 },
+    walls: [
+      { x: 200, y: 0, w: 30, h: 380 },
+      { x: 380, y: 220, w: 30, h: 380 },
+      { x: 560, y: 0, w: 30, h: 380 },
+      // funnel into the hole
+      { x: 620, y: 420, w: 160, h: 20 },
+      { x: 620, y: 560, w: 160, h: 20 }
+    ],
+    water: [],
+    sand: [
+      { x: 600, y: 440, w: 60, h: 120 }
+    ]
+  },
+  // 9. complex layout with water + walls + tight passage (par 5)
+  {
+    par: 5,
+    ballStart: { x: 90, y: 90 },
+    hole: { x: 720, y: 510 },
+    walls: [
+      { x: 180, y: 120, w: 30, h: 280 },
+      { x: 380, y: 0, w: 30, h: 240 },
+      { x: 380, y: 360, w: 30, h: 240 },
+      { x: 580, y: 200, w: 30, h: 280 },
+      { x: 410, y: 240, w: 200, h: 30 } // tight passage roof
+    ],
+    water: [
+      { x: 220, y: 420, w: 130, h: 130 },
+      { x: 620, y: 60, w: 140, h: 110 }
+    ],
+    sand: [
+      { x: 440, y: 280, w: 120, h: 70 }
+    ]
+  }
+];
+
+// ---------------------------------------------------------
+// Game state
+// ---------------------------------------------------------
+const BALL_R = 14;        // course-coord units
+const HOLE_R = 22;        // toilet target radius (roughly half emoji size)
+const FRICTION = 0.96;    // per-frame velocity multiplier (at 60fps)
+const SAND_FRICTION = 0.88; // 3x effective slowdown
+const WALL_BOUNCE = 0.7;  // velocity retention after bounce
+const MIN_SPEED = 0.05;   // below this -> stop
+const MAX_POWER = 22;     // max launch velocity (course units / frame@60fps)
+const MAX_DRAG = 180;     // pixels of drag (in canvas px) for max power
+
+let currentHole = 0;
+let strokes = 0;
+let totalStrokes = 0;
+let totalPar = 0;
+let ball = { x: 0, y: 0, vx: 0, vy: 0, atRest: true };
+let lastRestPos = { x: 0, y: 0 };
+let aiming = false;
+let aimStart = null;   // course coords of the ball when aim began
+let aimCurrent = null; // course coords of pointer
+let walls = [];        // resolved per-hole list including outer walls
+let water = [];
+let sand = [];
+let hole = { x: 0, y: 0 };
+let par = 0;
+let banner = null;     // { text, sub, until }
+let bannerTimer = null;
+let running = false;
+let gameDone = false;
+
+const holeNumEl = document.getElementById('hole-num');
+const strokesEl = document.getElementById('strokes');
+const parEl = document.getElementById('par');
+const totalEl = document.getElementById('total');
+const startOverlay = document.getElementById('start-overlay');
+const gameOverOverlay = document.getElementById('game-over-overlay');
+const newBest = document.getElementById('new-best');
+const goEmoji = document.getElementById('go-emoji');
+const goTitle = document.getElementById('go-title');
+const finalStrokes = document.getElementById('final-strokes');
+const finalPar = document.getElementById('final-par');
+const finalScore = document.getElementById('final-score');
+const hint = document.getElementById('hint');
+const bannerEl = document.getElementById('hole-banner');
+
+let highScore = (window.LS && LS.getHigh) ? LS.getHigh('putt') : parseInt(localStorage.getItem('putt_highscore') || '0', 10);
+
+// ---------------------------------------------------------
+// Hole loading
+// ---------------------------------------------------------
+function loadHole(idx) {
+  const def = HOLES[idx];
+  par = def.par;
+  strokes = 0;
+  ball.x = def.ballStart.x;
+  ball.y = def.ballStart.y;
+  ball.vx = 0; ball.vy = 0;
+  ball.atRest = true;
+  lastRestPos.x = ball.x;
+  lastRestPos.y = ball.y;
+  hole.x = def.hole.x;
+  hole.y = def.hole.y;
+  // outer border walls (thick)
+  const T = 24;
+  walls = [
+    { x: -T, y: -T, w: COURSE_W + T*2, h: T },           // top
+    { x: -T, y: COURSE_H, w: COURSE_W + T*2, h: T },     // bottom
+    { x: -T, y: 0, w: T, h: COURSE_H },                   // left
+    { x: COURSE_W, y: 0, w: T, h: COURSE_H }              // right
+  ].concat(def.walls.map(w => ({ ...w })));
+  water = def.water.map(w => ({ ...w }));
+  sand = def.sand.map(w => ({ ...w }));
+  aiming = false;
+  aimStart = null;
+  aimCurrent = null;
+  updateHud();
+}
+
+function updateHud() {
+  holeNumEl.textContent = currentHole + 1;
+  strokesEl.textContent = strokes;
+  parEl.textContent = par;
+  totalEl.textContent = totalStrokes;
+}
+
+// ---------------------------------------------------------
+// Input — drag-to-aim. We accept drags that *start* on or near
+// the ball (within a generous radius) so it works with fingers.
+// ---------------------------------------------------------
+function pointerStart(cx, cy) {
+  if (!running || !ball.atRest) return;
+  const p = clientToCourse(cx, cy);
+  const dx = p.x - ball.x;
+  const dy = p.y - ball.y;
+  const dist = Math.hypot(dx, dy);
+  // Generous tap target: 60 course units (~ 4x BALL_R)
+  if (dist <= 60) {
+    aiming = true;
+    aimStart = { x: ball.x, y: ball.y };
+    aimCurrent = { x: p.x, y: p.y };
+  }
+}
+function pointerMove(cx, cy) {
+  if (!aiming) return;
+  const p = clientToCourse(cx, cy);
+  aimCurrent = { x: p.x, y: p.y };
+}
+function pointerEnd() {
+  if (!aiming || !aimStart || !aimCurrent) {
+    aiming = false; aimStart = null; aimCurrent = null;
+    return;
+  }
+  // Drag distance in *canvas* pixels for consistent feel across screens
+  const dragCoursePx = Math.hypot(aimCurrent.x - aimStart.x, aimCurrent.y - aimStart.y);
+  const dragCanvasPx = dragCoursePx * viewScale;
+  if (dragCanvasPx < 6) {
+    // tiny tap -> cancel
+    aiming = false; aimStart = null; aimCurrent = null;
+    return;
+  }
+  // Direction is opposite the drag (pull-back to fire)
+  const dx = aimStart.x - aimCurrent.x;
+  const dy = aimStart.y - aimCurrent.y;
+  const dlen = Math.hypot(dx, dy) || 1;
+  const ndx = dx / dlen, ndy = dy / dlen;
+  const power = Math.min(1, dragCanvasPx / MAX_DRAG) * MAX_POWER;
+  ball.vx = ndx * power;
+  ball.vy = ndy * power;
+  ball.atRest = false;
+  strokes++;
+  updateHud();
+  if (window.LS && LS.sfx) LS.sfx.play('zap');
+  aiming = false; aimStart = null; aimCurrent = null;
+}
+
+// Mouse
+canvas.addEventListener('mousedown', (e) => { e.preventDefault(); pointerStart(e.clientX, e.clientY); });
+window.addEventListener('mousemove', (e) => { if (aiming) pointerMove(e.clientX, e.clientY); });
+window.addEventListener('mouseup', (e) => { if (aiming) pointerEnd(); });
+
+// Touch
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (e.touches.length > 0) {
+    const t = e.touches[0];
+    pointerStart(t.clientX, t.clientY);
+  }
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (aiming && e.touches.length > 0) {
+    const t = e.touches[0];
+    pointerMove(t.clientX, t.clientY);
+  }
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (aiming) pointerEnd();
+}, { passive: false });
+canvas.addEventListener('touchcancel', (e) => {
+  e.preventDefault();
+  aiming = false; aimStart = null; aimCurrent = null;
+}, { passive: false });
+
+// Keyboard reset
+document.addEventListener('keydown', (e) => {
+  if (!running) return;
+  if (e.key === 'r' || e.key === 'R') {
+    e.preventDefault();
+    resetHole();
+  }
+});
+
+function resetHole() {
+  loadHole(currentHole);
+  if (window.LS && LS.sfx) LS.sfx.play('click');
+}
+
+// ---------------------------------------------------------
+// Physics — semi-implicit step with axis-aware AABB collision.
+// On a wall hit, reflect the appropriate velocity component and
+// push the ball out by the smallest penetration depth.
+// ---------------------------------------------------------
+function aabbPointR(rect, cx, cy, r) {
+  // Closest point on rect to circle center
+  const nx = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+  const ny = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+  const dx = cx - nx;
+  const dy = cy - ny;
+  return { dx, dy, dist2: dx*dx + dy*dy, hit: (dx*dx + dy*dy) < r*r, nx, ny };
+}
+
+function rectContainsPoint(rect, x, y) {
+  return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+}
+
+function inSand(x, y) {
+  for (const s of sand) if (rectContainsPoint(s, x, y)) return true;
+  return false;
+}
+
+function inWater(x, y) {
+  for (const w of water) if (rectContainsPoint(w, x, y)) return true;
+  return false;
+}
+
+function stepBall(dt) {
+  if (ball.atRest) return;
+  // dt is normalized to ~1.0 at 60fps
+  // friction (apply per-frame; if dt > 1 use power)
+  const fric = inSand(ball.x, ball.y) ? SAND_FRICTION : FRICTION;
+  const f = Math.pow(fric, dt);
+  ball.vx *= f;
+  ball.vy *= f;
+
+  // Substep movement to avoid tunneling at high speeds
+  const speed = Math.hypot(ball.vx, ball.vy);
+  const maxStep = BALL_R * 0.6;
+  const totalDist = speed * dt;
+  const sub = Math.max(1, Math.ceil(totalDist / maxStep));
+  const sdt = dt / sub;
+  for (let i = 0; i < sub; i++) {
+    moveAndCollide(sdt);
+    if (ball.atRest) break;
+  }
+
+  // Stop if too slow
+  const v2 = ball.vx*ball.vx + ball.vy*ball.vy;
+  if (v2 < MIN_SPEED * MIN_SPEED) {
+    ball.vx = 0; ball.vy = 0; ball.atRest = true;
+    onBallRest();
+  }
+
+  // Hole detection — needs to be slow enough to "fall in"
+  const hdx = ball.x - hole.x, hdy = ball.y - hole.y;
+  const hd2 = hdx*hdx + hdy*hdy;
+  if (hd2 < HOLE_R*HOLE_R && Math.hypot(ball.vx, ball.vy) < 12) {
+    completeHole();
+  }
+}
+
+function moveAndCollide(sdt) {
+  // Try X axis first
+  const oldX = ball.x;
+  ball.x += ball.vx * sdt;
+  for (const w of walls) {
+    const c = aabbPointR(w, ball.x, ball.y, BALL_R);
+    if (c.hit) {
+      // Resolve in X — push out and flip vx
+      if (ball.vx > 0) {
+        ball.x = w.x - BALL_R;
+      } else if (ball.vx < 0) {
+        ball.x = w.x + w.w + BALL_R;
+      }
+      ball.vx = -ball.vx * WALL_BOUNCE;
+      bounceFx();
+    }
+  }
+  // Then Y axis
+  ball.y += ball.vy * sdt;
+  for (const w of walls) {
+    const c = aabbPointR(w, ball.x, ball.y, BALL_R);
+    if (c.hit) {
+      if (ball.vy > 0) {
+        ball.y = w.y - BALL_R;
+      } else if (ball.vy < 0) {
+        ball.y = w.y + w.h + BALL_R;
+      }
+      ball.vy = -ball.vy * WALL_BOUNCE;
+      bounceFx();
+    }
+  }
+  // Water hazard — check ball center
+  if (inWater(ball.x, ball.y)) {
+    if (window.LS && LS.sfx) LS.sfx.play('splat');
+    strokes++; // penalty
+    ball.x = lastRestPos.x;
+    ball.y = lastRestPos.y;
+    ball.vx = 0; ball.vy = 0;
+    ball.atRest = true;
+    updateHud();
+  }
+}
+
+let bounceCooldown = 0;
+function bounceFx() {
+  const now = performance.now();
+  if (now - bounceCooldown > 60) {
+    bounceCooldown = now;
+    if (window.LS && LS.sfx) LS.sfx.play('click');
+  }
+}
+
+function onBallRest() {
+  // If we came to rest inside the toilet's catch radius, count it.
+  const hdx = ball.x - hole.x, hdy = ball.y - hole.y;
+  if (hdx*hdx + hdy*hdy < HOLE_R*HOLE_R) {
+    completeHole();
+    return;
+  }
+  lastRestPos.x = ball.x;
+  lastRestPos.y = ball.y;
+}
+
+// ---------------------------------------------------------
+// Hole / game completion
+// ---------------------------------------------------------
+function completeHole() {
+  if (!running) return;
+  running = false;
+  totalStrokes += strokes;
+  totalPar += par;
+  if (window.LS && LS.sfx) {
+    LS.sfx.play('flush');
+    setTimeout(() => { if (window.LS && LS.sfx) LS.sfx.play('coin'); }, 180);
+  }
+  const diff = strokes - par;
+  let label;
+  if (strokes === 1) label = 'HOLE-IN-ONE!';
+  else if (diff <= -2) label = 'EAGLE!';
+  else if (diff === -1) label = 'BIRDIE!';
+  else if (diff === 0) label = 'PAR';
+  else if (diff === 1) label = 'BOGEY';
+  else label = '+' + diff;
+  showBanner(label, 'Hul ' + (currentHole + 1) + ' · ' + strokes + ' slag');
+  updateHud();
+  setTimeout(() => {
+    hideBanner();
+    currentHole++;
+    if (currentHole >= HOLES.length) {
+      finishGame();
+    } else {
+      loadHole(currentHole);
+      running = true;
+    }
+  }, 1500);
+}
+
+function showBanner(text, sub) {
+  bannerEl.innerHTML = text + (sub ? '<span class="sub">' + sub + '</span>' : '');
+  bannerEl.classList.remove('hidden');
+}
+function hideBanner() {
+  bannerEl.classList.add('hidden');
+}
+
+function finishGame() {
+  gameDone = true;
+  if (window.LS && LS.sfx) LS.sfx.play('megaflush');
+  const completionBonus = 500;
+  const underPar = totalPar - totalStrokes;
+  const score = Math.max(0, underPar * 100) + completionBonus;
+  finalStrokes.textContent = totalStrokes;
+  finalPar.textContent = totalPar;
+  finalScore.textContent = score;
+  goTitle.textContent = underPar > 0 ? 'UNDER PAR!' : (underPar === 0 ? 'EVEN PAR!' : 'FÆRDIG!');
+  goEmoji.textContent = underPar >= 3 ? '🏆' : (underPar >= 0 ? '🥇' : '🚽');
+
+  let isNew = false;
+  const result = window.LS ? LS.reportGameEnd({
+    gameKey: 'putt',
+    score,
+    extra: { completedAll: true, underPar, totalStrokes, totalPar }
+  }) : null;
+  if (result) {
+    isNew = result.isNewHigh;
+    if (result.dailyCompleted && LS.toast) {
+      LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 });
+    }
+  } else {
+    // fallback
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('putt_highscore', highScore);
+      isNew = score > 0;
+    }
+  }
+  document.body.classList.remove('playing');
+  setTimeout(() => {
+    if (isNew) newBest.classList.remove('hidden');
+    gameOverOverlay.classList.remove('hidden');
+  }, 500);
+}
+
+// ---------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Backdrop (outside the course) - dark brown
+  ctx.fillStyle = '#3b2509';
+  ctx.fillRect(0, 0, W, H);
+
+  // Set up course transform
+  ctx.save();
+  ctx.translate(viewOffX, viewOffY);
+  ctx.scale(viewScale, viewScale);
+
+  // Course fairway with subtle brick pattern
+  ctx.fillStyle = '#7a5a30';
+  ctx.fillRect(0, 0, COURSE_W, COURSE_H);
+  // Brick lines (subtle)
+  ctx.strokeStyle = 'rgba(43, 24, 8, 0.18)';
+  ctx.lineWidth = 1;
+  const brickH = 28, brickW = 56;
+  for (let y = 0; y < COURSE_H; y += brickH) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(COURSE_W, y);
+    ctx.stroke();
+    const offset = (Math.floor(y / brickH) % 2 === 0) ? 0 : brickW / 2;
+    for (let x = offset; x < COURSE_W; x += brickW) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + brickH);
+      ctx.stroke();
+    }
+  }
+
+  // Sand traps
+  for (const s of sand) {
+    ctx.fillStyle = '#9c8050';
+    ctx.fillRect(s.x, s.y, s.w, s.h);
+    // dotted texture
+    ctx.fillStyle = 'rgba(60, 40, 15, 0.35)';
+    for (let py = s.y + 6; py < s.y + s.h - 4; py += 10) {
+      for (let px = s.x + 6 + ((py / 10) | 0) % 2 * 5; px < s.x + s.w - 4; px += 10) {
+        ctx.fillRect(px, py, 2, 2);
+      }
+    }
+  }
+
+  // Water hazards (animated)
+  const t = performance.now() / 1000;
+  for (const w of water) {
+    const grad = ctx.createLinearGradient(w.x, w.y, w.x, w.y + w.h);
+    grad.addColorStop(0, '#1d4a8a');
+    grad.addColorStop(1, '#0d2a55');
+    ctx.fillStyle = grad;
+    ctx.fillRect(w.x, w.y, w.w, w.h);
+    // wave lines
+    ctx.strokeStyle = 'rgba(180, 220, 255, 0.45)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      const yy = w.y + (w.h * (0.2 + 0.2 * i)) + Math.sin(t * 1.5 + i) * 3;
+      ctx.beginPath();
+      const segs = 12;
+      for (let s = 0; s <= segs; s++) {
+        const sx = w.x + (w.w / segs) * s;
+        const sy = yy + Math.sin(t * 2 + s * 0.6 + i) * 2;
+        if (s === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+    }
+    // 💧 droplet emoji marker in center
+    ctx.font = Math.min(w.w, w.h) * 0.4 + 'px ' + EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💧', w.x + w.w / 2, w.y + w.h / 2);
+  }
+
+  // Walls (dark brown brick)
+  for (const w of walls) {
+    // skip the outer-border ones that are mostly off-screen,
+    // but still draw a thin inner edge for visual frame
+    const inside = !(w.x < -10 || w.y < -10 || w.x + w.w > COURSE_W + 10 || w.y + w.h > COURSE_H + 10);
+    if (!inside) {
+      // border edge inner stripe
+      ctx.fillStyle = '#2a1808';
+      const cx = Math.max(0, w.x);
+      const cy = Math.max(0, w.y);
+      const cw = Math.min(COURSE_W, w.x + w.w) - cx;
+      const ch = Math.min(COURSE_H, w.y + w.h) - cy;
+      if (cw > 0 && ch > 0) ctx.fillRect(cx, cy, cw, ch);
+      continue;
+    }
+    drawBrickWall(w);
+  }
+
+  // Hole (toilet) with glow ring
+  const glow = 0.6 + 0.4 * Math.sin(t * 3);
+  ctx.save();
+  ctx.globalAlpha = 0.35 * glow;
+  ctx.fillStyle = '#ffd23f';
+  ctx.beginPath();
+  ctx.arc(hole.x, hole.y, HOLE_R + 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = 'rgba(59, 37, 9, 0.6)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(hole.x, hole.y, HOLE_R, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  ctx.font = (HOLE_R * 2.2) + 'px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🚽', hole.x, hole.y);
+
+  // Aim arrow (when aiming and ball at rest)
+  if (aiming && aimStart && aimCurrent && ball.atRest) {
+    const dx = aimStart.x - aimCurrent.x;
+    const dy = aimStart.y - aimCurrent.y;
+    const dlen = Math.hypot(dx, dy) || 1;
+    const ndx = dx / dlen, ndy = dy / dlen;
+    const dragCanvasPx = Math.hypot(aimCurrent.x - aimStart.x, aimCurrent.y - aimStart.y) * viewScale;
+    const powerFrac = Math.min(1, dragCanvasPx / MAX_DRAG);
+    const arrowLen = 30 + powerFrac * 120;
+    // arrow shaft
+    const x0 = ball.x;
+    const y0 = ball.y;
+    const x1 = x0 + ndx * arrowLen;
+    const y1 = y0 + ndy * arrowLen;
+    ctx.save();
+    // Color from yellow -> red as power increases
+    const r = Math.floor(255);
+    const g = Math.floor(210 - powerFrac * 160);
+    const b = Math.floor(63 - powerFrac * 50);
+    ctx.strokeStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    // arrowhead
+    const hx = x1, hy = y1;
+    const ang = Math.atan2(ndy, ndx);
+    const ah = 14;
+    ctx.beginPath();
+    ctx.moveTo(hx + Math.cos(ang) * ah, hy + Math.sin(ang) * ah);
+    ctx.lineTo(hx + Math.cos(ang + 2.5) * ah, hy + Math.sin(ang + 2.5) * ah);
+    ctx.lineTo(hx + Math.cos(ang - 2.5) * ah, hy + Math.sin(ang - 2.5) * ah);
+    ctx.closePath();
+    ctx.fill();
+
+    // Power bar at top of ball
+    const barW = 60, barH = 6;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(ball.x - barW/2, ball.y - 38, barW, barH);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fillRect(ball.x - barW/2, ball.y - 38, barW * powerFrac, barH);
+    ctx.strokeStyle = '#3b2509';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(ball.x - barW/2, ball.y - 38, barW, barH);
+    ctx.restore();
+  }
+
+  // Ball (poop emoji) with shadow
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(ball.x + 2, ball.y + 4, BALL_R * 0.9, BALL_R * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.font = (BALL_R * 2.2) + 'px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💩', ball.x, ball.y);
+
+  ctx.restore();
+
+  // Outer-frame letterbox border
+  ctx.save();
+  ctx.strokeStyle = '#2a1808';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(viewOffX - 2, viewOffY - 2, COURSE_W * viewScale + 4, COURSE_H * viewScale + 4);
+  ctx.restore();
+}
+
+function drawBrickWall(w) {
+  // base
+  ctx.fillStyle = '#2a1808';
+  ctx.fillRect(w.x, w.y, w.w, w.h);
+  // mortar lines
+  ctx.strokeStyle = '#1a0a02';
+  ctx.lineWidth = 1;
+  const bw = 30, bh = 12;
+  for (let yy = w.y; yy < w.y + w.h; yy += bh) {
+    const off = (Math.floor((yy - w.y) / bh) % 2 === 0) ? 0 : bw / 2;
+    for (let xx = w.x + off; xx < w.x + w.w; xx += bw) {
+      ctx.strokeRect(xx, yy, bw, bh);
+    }
+  }
+  // highlight top
+  ctx.fillStyle = 'rgba(255, 200, 120, 0.12)';
+  ctx.fillRect(w.x, w.y, w.w, 2);
+}
+
+// ---------------------------------------------------------
+// Main loop
+// ---------------------------------------------------------
+let lastT = 0;
+function frame(t) {
+  const dt = lastT ? Math.min(32, t - lastT) / 16 : 1; // normalized to 60fps
+  lastT = t;
+  if (running && !ball.atRest) {
+    stepBall(dt);
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------
+// Start / restart
+// ---------------------------------------------------------
+function start() {
+  currentHole = 0;
+  totalStrokes = 0;
+  totalPar = 0;
+  gameDone = false;
+  loadHole(0);
+  running = true;
+  startOverlay.classList.add('hidden');
+  gameOverOverlay.classList.add('hidden');
+  newBest.classList.add('hidden');
+  hideBanner();
+  document.body.classList.add('playing');
+  hint.style.opacity = 1;
+  setTimeout(() => { hint.style.opacity = 0.4; }, 4000);
+}
+
+document.getElementById('start-btn').onclick = start;
+document.getElementById('restart-btn').onclick = start;
+
+// Mount mute button (shared module)
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
+if (document.readyState !== 'loading' && window.LS && window.LS.mountMuteButton) {
+  window.LS.mountMuteButton();
+}
+
+// Initial draw with hole 0 visible behind start overlay
+loadHole(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Plop-Pop</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #2a1808; }
+  body { touch-action: none; position: fixed; width: 100%; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: -webkit-optimize-contrast; }
+
+  #hud {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+    gap: 6px;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 16px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.55), rgba(0,0,0,0.9));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+  .controls-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,249,230,0.9);
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 14px;
+    color: #3b2509;
+    font-weight: 600;
+    z-index: 10;
+    transition: opacity 0.6s;
+  }
+  @keyframes spin { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="score-card">💩 <span id="score">0</span></div>
+    <div class="score-card">🔄 <span id="combo">0</span></div>
+    <div class="score-card">🏆 <span id="high">0</span></div>
+  </div>
+  <div class="controls-hint" id="hint">🖱️ Sigt med musen · KLIK for at skyde</div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>PLOP<br>POP</h1>
+    <p>Skyd lort-bobler op i kloak-loftet!<br>Match 3 eller flere af samme farve = POP! 💥<br><br>🖱️ Sigt med musen, KLIK for at skyde<br>📱 Træk fingeren · slip for at skyde<br>⌨️ ← → for at sigte, MELLEMRUM for at skyde</p>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">💩</div>
+    <h1>GAME OVER!</h1>
+    <p id="go-text">Du fik <b><span id="final-score">0</span> point</b><br>Største drop: <b><span id="final-combo">0</span> bobler</b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">PRØV IGEN</button>
+  </div>
+</div>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = window.innerWidth, H = window.innerHeight;
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  recomputeLayout();
+}
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+// ---------- Layout / grid constants ----------
+const COLS_ODD = 8;        // 8 cells in odd rows
+const COLS_EVEN = 9;       // 9 cells in even rows (longer row)
+const VISIBLE_ROWS = 14;   // logical visible rows max
+let BUBBLE_R = 22;         // computed at resize
+let CELL_W = 44;           // = 2*R
+let ROW_H = 38;            // ~ R*sqrt(3) for hex packing
+let GRID_TOP = 60;
+let GRID_LEFT = 20;
+let DEATH_LINE_Y = 0;      // bottom line where shooter sits
+let SHOOTER_Y = 0;
+
+function recomputeLayout() {
+  // We want grid to fit horizontally with COLS_EVEN columns.
+  // playable height: from GRID_TOP to ~80% of H. shooter sits at 88%.
+  GRID_TOP = Math.max(56, H * 0.08);
+  SHOOTER_Y = H - Math.max(80, H * 0.13);
+  DEATH_LINE_Y = SHOOTER_Y - 30;
+  // bubble sized to fit COLS_EVEN across the screen with side margin
+  const sideMargin = 14;
+  const usable = W - sideMargin * 2;
+  CELL_W = Math.min(56, Math.max(28, usable / COLS_EVEN));
+  BUBBLE_R = CELL_W / 2;
+  ROW_H = CELL_W * 0.866; // sqrt(3)/2
+  GRID_LEFT = (W - CELL_W * COLS_EVEN) / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---------- Colors ----------
+const COLORS = [
+  { key: 'brown',  fill: '#8b5a2b', light: '#d4a373' },
+  { key: 'green',  fill: '#5fb33c', light: '#a3d977' },
+  { key: 'yellow', fill: '#ffd23f', light: '#ffe88a' },
+  { key: 'pink',   fill: '#ff4e6b', light: '#ff9aac' },
+  { key: 'purple', fill: '#a04ec8', light: '#cf9ce6' }
+];
+function colorOf(idx) { return COLORS[idx]; }
+
+// ---------- Grid model ----------
+// Grid: array of rows. Each row has 8 or 9 cells depending on parity.
+// row even (0, 2, 4, ...) -> 9 cells (long row, starts at GRID_LEFT + 0)
+// row odd  (1, 3, 5, ...) -> 8 cells (short row, offset by CELL_W/2)
+// cell value: null OR { color: int, popping: 0..1 (anim), x, y }
+let grid = []; // grid[row][col] -> bubble or null
+
+function rowCols(row) { return (row % 2 === 0) ? COLS_EVEN : COLS_ODD; }
+function cellCenter(row, col) {
+  const xOff = (row % 2 === 0) ? 0 : CELL_W / 2;
+  const x = GRID_LEFT + xOff + col * CELL_W + BUBBLE_R;
+  const y = GRID_TOP + row * ROW_H + BUBBLE_R;
+  return { x, y };
+}
+function neighbors(row, col) {
+  // 6 neighbors in offset hex grid
+  // even row (long, 9): neighbors above/below at col-1 and col (because short row above is shifted +half cell so its col 0 sits between even col 0 and 1)
+  // odd row (short, 8): neighbors above/below at col and col+1
+  const out = [];
+  // left/right same row
+  if (col > 0) out.push([row, col - 1]);
+  if (col < rowCols(row) - 1) out.push([row, col + 1]);
+  if (row % 2 === 0) {
+    // above/below at col-1 and col
+    if (row > 0) {
+      if (col - 1 >= 0) out.push([row - 1, col - 1]);
+      if (col < rowCols(row - 1)) out.push([row - 1, col]);
+    }
+    if (row < grid.length - 1) {
+      if (col - 1 >= 0) out.push([row + 1, col - 1]);
+      if (col < rowCols(row + 1)) out.push([row + 1, col]);
+    }
+  } else {
+    // odd row: above/below at col and col+1
+    if (row > 0) {
+      if (col < rowCols(row - 1)) out.push([row - 1, col]);
+      if (col + 1 < rowCols(row - 1)) out.push([row - 1, col + 1]);
+    }
+    if (row < grid.length - 1) {
+      if (col < rowCols(row + 1)) out.push([row + 1, col]);
+      if (col + 1 < rowCols(row + 1)) out.push([row + 1, col + 1]);
+    }
+  }
+  return out;
+}
+
+function ensureRows(n) {
+  while (grid.length < n) {
+    const r = grid.length;
+    grid.push(new Array(rowCols(r)).fill(null));
+  }
+}
+
+function fillInitialRows(rows, density) {
+  grid = [];
+  ensureRows(rows);
+  // Limit color palette early to make matches easier
+  const usable = COLORS.length;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < rowCols(r); c++) {
+      if (Math.random() < density) {
+        grid[r][c] = makeBubble(Math.floor(Math.random() * usable));
+      }
+    }
+  }
+}
+
+function makeBubble(colorIdx) {
+  return { color: colorIdx, popping: 0, fall: null, falling: false };
+}
+
+// Push a new row at the top. Existing rows shift down by 1, new row inserted at index 0.
+function pushTopRow() {
+  // Shift everything down: insert new row at index 0
+  const newRow = new Array(rowCols(0)).fill(null);
+  // Old row 0 becomes row 1 - which means parity flips, so column counts of all OLD rows logically should change too.
+  // We simulate this by rebuilding rows: we keep colors but reassign columns based on new parity.
+  // Simplest correct approach: create a brand new grid where row0 = new row, rowN = oldRow(N-1)
+  // but we must respect column count. We'll truncate or pad with null appropriately.
+  const newGrid = [newRow];
+  for (let r = 0; r < grid.length; r++) {
+    const newR = r + 1;
+    const newCount = rowCols(newR);
+    const oldCount = grid[r].length;
+    const out = new Array(newCount).fill(null);
+    // Map old col i -> new col i (truncate if overflow)
+    for (let c = 0; c < Math.min(oldCount, newCount); c++) {
+      out[c] = grid[r][c];
+    }
+    // If old row had more cells than new (e.g. even -> odd), the rightmost cells are dropped - rare since we pad.
+    // If new has more (odd -> even), extra cell stays null.
+    newGrid.push(out);
+  }
+  grid = newGrid;
+  // Fill the new top row with random colors using existing palette in active board (or full palette)
+  const palette = activePalette();
+  for (let c = 0; c < rowCols(0); c++) {
+    // fill mostly - leave small gaps
+    if (Math.random() < 0.85) {
+      grid[0][c] = makeBubble(palette[Math.floor(Math.random() * palette.length)]);
+    }
+  }
+  if (window.LS && LS.sfx) LS.sfx.play('splat', { volume: 0.4 });
+}
+
+function activePalette() {
+  // colors actually present on the board, fallback to all
+  const set = new Set();
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const b = grid[r][c];
+      if (b && !b.falling) set.add(b.color);
+    }
+  }
+  if (set.size < 2) return COLORS.map((_, i) => i);
+  return Array.from(set);
+}
+
+// ---------- Match detection (BFS flood-fill same color) ----------
+function findMatchGroup(row, col) {
+  const start = grid[row] && grid[row][col];
+  if (!start) return [];
+  const color = start.color;
+  const seen = new Set();
+  const key = (r, c) => r + ',' + c;
+  const queue = [[row, col]];
+  seen.add(key(row, col));
+  const out = [[row, col]];
+  while (queue.length) {
+    const [r, c] = queue.shift();
+    for (const [nr, nc] of neighbors(r, c)) {
+      const k = key(nr, nc);
+      if (seen.has(k)) continue;
+      const b = grid[nr] && grid[nr][nc];
+      if (!b || b.falling || b.popping > 0) continue;
+      if (b.color !== color) continue;
+      seen.add(k);
+      out.push([nr, nc]);
+      queue.push([nr, nc]);
+    }
+  }
+  return out;
+}
+
+// Connectivity: BFS from row 0. Any bubble not reached -> falls.
+function findDisconnected() {
+  const seen = new Set();
+  const key = (r, c) => r + ',' + c;
+  const queue = [];
+  for (let c = 0; c < rowCols(0); c++) {
+    if (grid[0][c] && !grid[0][c].falling && grid[0][c].popping <= 0) {
+      seen.add(key(0, c));
+      queue.push([0, c]);
+    }
+  }
+  while (queue.length) {
+    const [r, c] = queue.shift();
+    for (const [nr, nc] of neighbors(r, c)) {
+      const k = key(nr, nc);
+      if (seen.has(k)) continue;
+      const b = grid[nr] && grid[nr][nc];
+      if (!b || b.falling || b.popping > 0) continue;
+      seen.add(k);
+      queue.push([nr, nc]);
+    }
+  }
+  // collect all bubbles not in `seen`
+  const orphans = [];
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const b = grid[r][c];
+      if (!b || b.falling || b.popping > 0) continue;
+      if (!seen.has(key(r, c))) orphans.push([r, c]);
+    }
+  }
+  return orphans;
+}
+
+// ---------- State ----------
+let score = 0;
+let highScore = 0;
+let maxCombo = 0;
+let bubblesDropped = 0;
+let bubblesPopped = 0;
+let shotsFired = 0;
+const SHOTS_PER_PUSH = 8;
+let running = false;
+
+// shooter
+let shooterAngle = -Math.PI / 2; // pointing up
+let aimX = 0, aimY = 0;
+let currentColor = 0;
+let nextColor = 0;
+let bubbleInFlight = null; // { x, y, vx, vy, color }
+let fallingBubbles = []; // { x, y, vx, vy, color }
+let particles = []; // pop sparks
+
+// ---------- Init / start ----------
+function loadHigh() {
+  if (window.LS && LS.getHigh) {
+    const v = LS.getHigh('plop');
+    if (v) return v;
+  }
+  return parseInt(localStorage.getItem('plop_highscore') || '0', 10) || 0;
+}
+function saveHigh(v) {
+  // fallback storage; LS.setHigh is called via reportGameEnd as well
+  try { localStorage.setItem('plop_highscore', String(v)); } catch (e) {}
+}
+
+function start() {
+  running = true;
+  score = 0; maxCombo = 0; bubblesDropped = 0; bubblesPopped = 0; shotsFired = 0;
+  bubbleInFlight = null; fallingBubbles = []; particles = [];
+  document.getElementById('score').textContent = 0;
+  document.getElementById('combo').textContent = 0;
+  fillInitialRows(6, 0.78);
+  loadShooterColors();
+  document.getElementById('start-overlay').classList.add('hidden');
+  document.getElementById('game-over-overlay').classList.add('hidden');
+  document.getElementById('new-best').classList.add('hidden');
+  document.body.classList.add('playing');
+  setTimeout(() => { const h = document.getElementById('hint'); if (h) h.style.opacity = '0'; }, 3000);
+}
+
+function loadShooterColors() {
+  const palette = activePalette();
+  if (currentColor === undefined || currentColor === null) {
+    currentColor = palette[Math.floor(Math.random() * palette.length)];
+  }
+  // ensure currentColor is in palette
+  if (palette.indexOf(currentColor) === -1) currentColor = palette[Math.floor(Math.random() * palette.length)];
+  nextColor = palette[Math.floor(Math.random() * palette.length)];
+}
+
+function pickNextShooterColor() {
+  currentColor = nextColor;
+  const palette = activePalette();
+  if (!palette.length) {
+    // board cleared - generate fresh layout (level complete)
+    levelComplete();
+    return;
+  }
+  if (palette.indexOf(currentColor) === -1) currentColor = palette[Math.floor(Math.random() * palette.length)];
+  nextColor = palette[Math.floor(Math.random() * palette.length)];
+}
+
+function levelComplete() {
+  score += 500;
+  document.getElementById('score').textContent = score;
+  if (window.LS && LS.sfx) LS.sfx.play('levelup');
+  if (window.LS && LS.toast) LS.toast('🎉 LEVEL CLEAR! +500', { duration: 1800 });
+  // build a fresh, slightly harder layout
+  const extraRows = Math.min(8, 6 + Math.floor(score / 1500));
+  fillInitialRows(extraRows, 0.82);
+  loadShooterColors();
+}
+
+// ---------- Input / aiming ----------
+function setAimFromPointer(px, py) {
+  aimX = px; aimY = py;
+  const dx = px - W / 2;
+  const dy = py - SHOOTER_Y;
+  let a = Math.atan2(dy, dx);
+  // clamp angle so we only shoot upward (between -170 and -10 deg)
+  const minA = -Math.PI + 0.18;
+  const maxA = -0.18;
+  if (a > maxA && a < Math.PI / 2) a = maxA;
+  else if (a >= Math.PI / 2 || a < minA) a = minA;
+  shooterAngle = a;
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  setAimFromPointer(e.clientX - r.left, e.clientY - r.top);
+});
+canvas.addEventListener('mousedown', (e) => {
+  if (!running) return;
+  const r = canvas.getBoundingClientRect();
+  setAimFromPointer(e.clientX - r.left, e.clientY - r.top);
+  fire();
+});
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (!running) return;
+  const t = e.touches[0];
+  const r = canvas.getBoundingClientRect();
+  setAimFromPointer(t.clientX - r.left, t.clientY - r.top);
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const r = canvas.getBoundingClientRect();
+  setAimFromPointer(t.clientX - r.left, t.clientY - r.top);
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (!running) return;
+  fire();
+}, { passive: false });
+
+document.addEventListener('keydown', (e) => {
+  if (!running) return;
+  if (e.code === 'ArrowLeft') { shooterAngle -= 0.06; if (shooterAngle < -Math.PI + 0.18) shooterAngle = -Math.PI + 0.18; }
+  if (e.code === 'ArrowRight') { shooterAngle += 0.06; if (shooterAngle > -0.18) shooterAngle = -0.18; }
+  if (e.code === 'Space') { e.preventDefault(); fire(); }
+});
+
+// ---------- Firing / physics ----------
+function fire() {
+  if (!running || bubbleInFlight) return;
+  const speed = 18;
+  bubbleInFlight = {
+    x: W / 2,
+    y: SHOOTER_Y,
+    vx: Math.cos(shooterAngle) * speed,
+    vy: Math.sin(shooterAngle) * speed,
+    color: currentColor
+  };
+  if (window.LS && LS.sfx) LS.sfx.play('zap', { volume: 0.5 });
+  pickNextShooterColor();
+  shotsFired++;
+  if (shotsFired % SHOTS_PER_PUSH === 0) {
+    pushTopRow();
+    // immediately check for game over after push
+    if (anyBubbleBelowDeathLine()) {
+      gameOver();
+    }
+  }
+}
+
+function anyBubbleBelowDeathLine() {
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const b = grid[r][c];
+      if (b && !b.falling) {
+        const { y } = cellCenter(r, c);
+        if (y + BUBBLE_R >= DEATH_LINE_Y) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function distSq(x1, y1, x2, y2) { const dx = x1 - x2, dy = y1 - y2; return dx*dx + dy*dy; }
+
+function updateFlight(dt) {
+  if (!bubbleInFlight) return;
+  const b = bubbleInFlight;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  // wall bounce
+  if (b.x - BUBBLE_R < 0) { b.x = BUBBLE_R; b.vx = -b.vx; if (window.LS && LS.sfx) LS.sfx.play('click', { volume: 0.18 }); }
+  if (b.x + BUBBLE_R > W) { b.x = W - BUBBLE_R; b.vx = -b.vx; if (window.LS && LS.sfx) LS.sfx.play('click', { volume: 0.18 }); }
+  // top hit?
+  if (b.y - BUBBLE_R <= GRID_TOP) {
+    snapToGrid(b);
+    bubbleInFlight = null;
+    return;
+  }
+  // collision with any existing bubble
+  const touchDist = (BUBBLE_R * 2) * 0.95;
+  const touchSq = touchDist * touchDist;
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const cell = grid[r][c];
+      if (!cell || cell.falling || cell.popping > 0) continue;
+      const ctr = cellCenter(r, c);
+      if (distSq(b.x, b.y, ctr.x, ctr.y) < touchSq) {
+        snapToGrid(b);
+        bubbleInFlight = null;
+        return;
+      }
+    }
+  }
+  // off bottom (shouldn't happen since clamped angle, but safety)
+  if (b.y > H + 100) bubbleInFlight = null;
+}
+
+function snapToGrid(b) {
+  // find nearest empty cell
+  let bestR = -1, bestC = -1, bestD = Infinity;
+  // search rows around the bubble's y to keep cheap
+  const approxRow = Math.max(0, Math.floor((b.y - GRID_TOP - BUBBLE_R) / ROW_H));
+  ensureRows(approxRow + 3);
+  const minRow = Math.max(0, approxRow - 2);
+  const maxRow = Math.min(grid.length - 1, approxRow + 2);
+  for (let r = minRow; r <= maxRow; r++) {
+    for (let c = 0; c < rowCols(r); c++) {
+      if (grid[r][c]) continue;
+      const ctr = cellCenter(r, c);
+      const d = distSq(b.x, b.y, ctr.x, ctr.y);
+      if (d < bestD) { bestD = d; bestR = r; bestC = c; }
+    }
+  }
+  // If no empty cell found in nearby rows, try whole grid
+  if (bestR === -1) {
+    for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < rowCols(r); c++) {
+        if (grid[r][c]) continue;
+        const ctr = cellCenter(r, c);
+        const d = distSq(b.x, b.y, ctr.x, ctr.y);
+        if (d < bestD) { bestD = d; bestR = r; bestC = c; }
+      }
+    }
+  }
+  if (bestR === -1) {
+    // need new row(s) at the bottom
+    ensureRows(grid.length + 1);
+    return snapToGrid(b);
+  }
+  grid[bestR][bestC] = makeBubble(b.color);
+  resolveAfterSnap(bestR, bestC);
+}
+
+function resolveAfterSnap(r, c) {
+  const group = findMatchGroup(r, c);
+  if (group.length >= 3) {
+    // pop them
+    for (const [pr, pc] of group) {
+      const cell = grid[pr][pc];
+      if (cell) cell.popping = 0.001; // start animation
+    }
+    // scoring
+    const matchScore = 30 + (group.length - 3) * 10;
+    score += matchScore;
+    bubblesPopped += group.length;
+
+    // schedule actual removal after pop anim
+    setTimeout(() => {
+      for (const [pr, pc] of group) {
+        if (grid[pr] && grid[pr][pc]) grid[pr][pc] = null;
+      }
+      // find disconnected after pops
+      const orphans = findDisconnected();
+      if (orphans.length) {
+        // mark falling
+        for (const [or, oc] of orphans) {
+          const cell = grid[or][oc];
+          if (!cell) continue;
+          const ctr = cellCenter(or, oc);
+          fallingBubbles.push({
+            x: ctr.x, y: ctr.y,
+            vx: (Math.random() - 0.5) * 1.5,
+            vy: 0,
+            color: cell.color
+          });
+          grid[or][oc] = null;
+        }
+        bubblesDropped += orphans.length;
+        score += orphans.length * 20;
+        if (orphans.length > maxCombo) maxCombo = orphans.length;
+        if (orphans.length >= 5) {
+          if (window.LS && LS.sfx) LS.sfx.play('megaflush', { volume: 0.55 });
+        } else if (orphans.length > 0) {
+          if (window.LS && LS.sfx) LS.sfx.play('flush', { volume: 0.45 });
+        }
+      } else {
+        if (window.LS && LS.sfx) LS.sfx.play(group.length >= 5 ? 'megaflush' : 'flush', { volume: 0.45 });
+      }
+      document.getElementById('score').textContent = score;
+      document.getElementById('combo').textContent = maxCombo;
+      // check level complete
+      if (isBoardEmpty()) levelComplete();
+    }, 220);
+
+    document.getElementById('score').textContent = score;
+    document.getElementById('combo').textContent = maxCombo;
+  } else {
+    // just snap sound
+    if (window.LS && LS.sfx) LS.sfx.play('click', { volume: 0.32 });
+    // check if the snapped bubble is below death line
+    const ctr = cellCenter(r, c);
+    if (ctr.y + BUBBLE_R >= DEATH_LINE_Y) {
+      gameOver();
+    }
+  }
+}
+
+function isBoardEmpty() {
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const b = grid[r][c];
+      if (b && !b.falling && b.popping <= 0) return false;
+    }
+  }
+  return true;
+}
+
+// ---------- Update particles, falling bubbles, popping ----------
+function updateAnims(dt) {
+  // popping animation: progress 0..1
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const b = grid[r][c];
+      if (b && b.popping > 0) {
+        b.popping += dt * 0.15;
+        if (b.popping >= 1) {
+          // spawn small particles
+          const ctr = cellCenter(r, c);
+          for (let i = 0; i < 6; i++) {
+            particles.push({
+              x: ctr.x, y: ctr.y,
+              vx: (Math.random() - 0.5) * 6,
+              vy: -Math.random() * 4 - 1,
+              life: 30, maxLife: 30,
+              color: COLORS[b.color].fill
+            });
+          }
+        }
+      }
+    }
+  }
+  // falling bubbles (gravity)
+  for (const f of fallingBubbles) {
+    f.vy += 0.7 * dt;
+    f.x += f.vx * dt;
+    f.y += f.vy * dt;
+    // slight sway
+    f.vx += Math.sin(f.y * 0.04) * 0.05 * dt;
+  }
+  fallingBubbles = fallingBubbles.filter(f => f.y < H + 60);
+  // particles
+  for (const p of particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 0.4 * dt;
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+}
+
+// ---------- Aim trajectory preview ----------
+function computeAimPath(maxBounces) {
+  const points = [{ x: W / 2, y: SHOOTER_Y }];
+  let x = W / 2, y = SHOOTER_Y;
+  let vx = Math.cos(shooterAngle), vy = Math.sin(shooterAngle);
+  let bounces = 0;
+  const STEP = 6;
+  let safety = 600;
+  while (safety-- > 0) {
+    x += vx * STEP;
+    y += vy * STEP;
+    if (x - BUBBLE_R < 0) { x = BUBBLE_R; vx = -vx; bounces++; points.push({ x, y, bounce: true }); if (bounces > maxBounces) break; continue; }
+    if (x + BUBBLE_R > W) { x = W - BUBBLE_R; vx = -vx; bounces++; points.push({ x, y, bounce: true }); if (bounces > maxBounces) break; continue; }
+    if (y - BUBBLE_R <= GRID_TOP) { points.push({ x, y, hit: true }); break; }
+    // bubble hit?
+    let hit = false;
+    const touchDist = (BUBBLE_R * 2) * 0.95;
+    const touchSq = touchDist * touchDist;
+    // only check rows in range for perf
+    const approxRow = Math.max(0, Math.floor((y - GRID_TOP - BUBBLE_R) / ROW_H));
+    const minRow = Math.max(0, approxRow - 2);
+    const maxRow = Math.min(grid.length - 1, approxRow + 2);
+    for (let r = minRow; r <= maxRow && !hit; r++) {
+      for (let c = 0; c < rowCols(r); c++) {
+        const cell = grid[r][c];
+        if (!cell || cell.falling || cell.popping > 0) continue;
+        const ctr = cellCenter(r, c);
+        if (distSq(x, y, ctr.x, ctr.y) < touchSq) { hit = true; break; }
+      }
+    }
+    if (hit) { points.push({ x, y, hit: true }); break; }
+    if (y > H || y < -50) break;
+  }
+  return points;
+}
+
+// ---------- Drawing ----------
+function drawBackground() {
+  // light beige with subtle tile
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#f5e8d0');
+  g.addColorStop(1, '#e0c896');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  // subtle hex tile pattern (cheap dots)
+  ctx.fillStyle = 'rgba(139, 90, 43, 0.07)';
+  const sp = 36;
+  for (let y = 0; y < H; y += sp) {
+    const ox = (Math.floor(y / sp) % 2) * (sp / 2);
+    for (let x = 0; x < W; x += sp) {
+      ctx.beginPath();
+      ctx.arc(x + ox, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // top frame
+  ctx.fillStyle = '#3b2509';
+  ctx.fillRect(0, GRID_TOP - 6, W, 6);
+  // death line
+  ctx.strokeStyle = 'rgba(255, 78, 107, 0.75)';
+  ctx.setLineDash([10, 8]);
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, DEATH_LINE_Y);
+  ctx.lineTo(W, DEATH_LINE_Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawBubble(x, y, colorIdx, scale, alpha) {
+  scale = scale || 1;
+  alpha = alpha == null ? 1 : alpha;
+  const col = COLORS[colorIdx];
+  const r = BUBBLE_R * scale;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // radial gradient
+  const grd = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
+  grd.addColorStop(0, '#fff');
+  grd.addColorStop(0.18, col.light);
+  grd.addColorStop(1, col.fill);
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  // outline
+  ctx.strokeStyle = '#3b2509';
+  ctx.lineWidth = Math.max(1.5, r * 0.08);
+  ctx.stroke();
+  // 💩 emoji centered, scaled
+  ctx.font = (r * 1.0) + 'px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.globalAlpha = alpha * 0.9;
+  ctx.fillText('💩', x, y + r * 0.04);
+  // highlight gloss
+  ctx.globalAlpha = alpha * 0.55;
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.35, y - r * 0.4, r * 0.3, r * 0.18, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawGrid() {
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const b = grid[r][c];
+      if (!b) continue;
+      const ctr = cellCenter(r, c);
+      if (b.popping > 0) {
+        const t = Math.min(1, b.popping);
+        drawBubble(ctr.x, ctr.y, b.color, 1 + t * 0.4, 1 - t);
+      } else {
+        drawBubble(ctr.x, ctr.y, b.color, 1, 1);
+      }
+    }
+  }
+}
+
+function drawShooter() {
+  // toilet bowl base
+  const cx = W / 2;
+  const cy = SHOOTER_Y;
+  // aim line - dotted
+  if (running && !bubbleInFlight) {
+    const path = computeAimPath(2);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(59, 37, 9, 0.65)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // dots along the path
+    for (let i = 1; i < path.length; i++) {
+      const p = path[i];
+      if (p.bounce || p.hit) {
+        ctx.fillStyle = p.hit ? '#ff4e6b' : '#ffd23f';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#3b2509';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // toilet platform
+  ctx.save();
+  ctx.fillStyle = '#fff9e6';
+  ctx.strokeStyle = '#3b2509';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 32, BUBBLE_R * 2.4, BUBBLE_R * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // emoji toilet bowl
+  ctx.font = (BUBBLE_R * 2.4) + 'px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🚽', cx, cy + 26);
+  ctx.restore();
+
+  // current bubble in launcher
+  if (running && !bubbleInFlight) {
+    drawBubble(cx, cy, currentColor, 1, 1);
+  } else if (running) {
+    // empty launcher slot
+    ctx.save();
+    ctx.fillStyle = 'rgba(59, 37, 9, 0.2)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, BUBBLE_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // angle indicator (small triangle)
+  if (running && !bubbleInFlight) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(shooterAngle + Math.PI / 2);
+    ctx.fillStyle = '#3b2509';
+    ctx.beginPath();
+    ctx.moveTo(0, -BUBBLE_R - 14);
+    ctx.lineTo(-7, -BUBBLE_R - 4);
+    ctx.lineTo(7, -BUBBLE_R - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // next bubble preview
+  if (running) {
+    ctx.save();
+    ctx.font = '13px "Bungee", sans-serif';
+    ctx.fillStyle = '#3b2509';
+    ctx.textAlign = 'left';
+    ctx.fillText('NÆSTE', 12, cy - 4);
+    ctx.restore();
+    drawBubble(40, cy + 20, nextColor, 0.6, 1);
+  }
+}
+
+function drawFlight() {
+  if (bubbleInFlight) {
+    drawBubble(bubbleInFlight.x, bubbleInFlight.y, bubbleInFlight.color, 1, 1);
+  }
+}
+
+function drawFalling() {
+  for (const f of fallingBubbles) {
+    drawBubble(f.x, f.y, f.color, 1, Math.max(0.3, 1 - (f.y - SHOOTER_Y) / 200));
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const a = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4 * a + 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawGrid();
+  drawFalling();
+  drawParticles();
+  drawShooter();
+  drawFlight();
+}
+
+// ---------- Game loop ----------
+let lastT = 0;
+function frame(t) {
+  const dt = Math.min(32, t - lastT) / 16;
+  lastT = t;
+  if (running) {
+    updateFlight(dt);
+    updateAnims(dt);
+    // check death line periodically (once snapped or new row pushed it's already checked, but cover dynamic state)
+  } else {
+    updateAnims(dt);
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------- Game over ----------
+function gameOver() {
+  if (!running) return;
+  running = false;
+  if (window.LS && LS.sfx) LS.sfx.play('gameover');
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-combo').textContent = maxCombo;
+
+  let isNew = false;
+  const result = (window.LS && LS.reportGameEnd) ? LS.reportGameEnd({
+    gameKey: 'plop',
+    score: score,
+    extra: { maxCombo: maxCombo, bubblesDropped: bubblesDropped, bubblesPopped: bubblesPopped }
+  }) : null;
+  if (result) {
+    isNew = !!result.isNewHigh;
+    if (result.dailyCompleted && LS.toast) {
+      LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 });
+    }
+    // Re-read high (LS.getHigh may not have 'plop' registered; fallback below)
+    const h = (LS.getHigh ? LS.getHigh('plop') : 0) || loadHigh();
+    if (score > highScore) { isNew = true; highScore = Math.max(highScore, score); }
+    else { highScore = Math.max(highScore, h); }
+  } else {
+    if (score > highScore) { highScore = score; isNew = true; }
+  }
+  if (score > 0 && score >= highScore) saveHigh(highScore);
+  document.getElementById('high').textContent = highScore;
+
+  document.body.classList.remove('playing');
+  setTimeout(() => {
+    if (isNew) document.getElementById('new-best').classList.remove('hidden');
+    document.getElementById('game-over-overlay').classList.remove('hidden');
+  }, 400);
+}
+
+// ---------- Wire up ----------
+document.getElementById('start-btn').onclick = start;
+document.getElementById('restart-btn').onclick = start;
+
+highScore = loadHigh();
+document.getElementById('high').textContent = highScore;
+
+// initial preview shooter
+currentColor = Math.floor(Math.random() * COLORS.length);
+nextColor = Math.floor(Math.random() * COLORS.length);
+fillInitialRows(6, 0.78); // for visual on start screen
+
+// Mount mute button
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
+if (document.readyState !== 'loading' && window.LS && window.LS.mountMuteButton) {
+  window.LS.mountMuteButton();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kloak-Klatrer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  #game.shake { animation: klatShake 0.22s ease-in-out; }
+  @keyframes klatShake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-6px, 4px); }
+    50% { transform: translate(5px, -3px); }
+    75% { transform: translate(-3px, -4px); }
+  }
+  #game.warn { animation: warnPulse 0.6s ease-in-out infinite alternate; }
+  @keyframes warnPulse {
+    from { box-shadow: inset 0 0 40px rgba(255, 60, 60, 0.0); }
+    to   { box-shadow: inset 0 0 80px rgba(255, 60, 60, 0.5); }
+  }
+  @keyframes popIn { from { transform: scale(0) rotate(-90deg); } to { transform: scale(1) rotate(0); } }
+  @keyframes spin  { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+  @keyframes floatUp { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -60px); opacity: 0; } }
+  .floating-pts {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, 0);
+    font-family: 'Bungee', sans-serif;
+    color: #ffd23f;
+    font-size: 18px;
+    text-shadow: 2px 2px 0 #3b2509;
+    pointer-events: none;
+    animation: floatUp 0.9s ease-out forwards;
+    z-index: 60;
+  }
+</style>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #1a0a02; }
+  body { touch-action: none; position: fixed; width: 100%; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: -webkit-optimize-contrast; }
+
+  #hud {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 15px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .score-card.danger {
+    background: #ff4e6b;
+    color: #fff9e6;
+    animation: warnFlash 0.4s ease-in-out infinite alternate;
+  }
+  @keyframes warnFlash { from { background: #ff4e6b; } to { background: #ffd23f; color: #3b2509; } }
+
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.55), rgba(0,0,0,0.92));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+  .controls-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,249,230,0.9);
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #3b2509;
+    font-weight: 600;
+    z-index: 10;
+    text-align: center;
+    max-width: 92vw;
+    transition: opacity 0.4s;
+  }
+  .touch-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    z-index: 5;
+    display: none;
+  }
+  .touch-zone.left { left: 0; }
+  .touch-zone.right { right: 0; }
+  body.playing .touch-zone { display: block; }
+  @media (hover: none) {
+    body.playing .touch-zone { display: block; }
+  }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="score-card">⬆ <span id="height">0</span> m</div>
+    <div class="score-card">🧻 <span id="papers">0</span></div>
+    <div class="score-card" id="water-card">🌊 <span id="water-dist">--</span> m</div>
+    <div class="score-card">🏆 <span id="high">0</span> m</div>
+  </div>
+  <div class="touch-zone left" id="tz-left"></div>
+  <div class="touch-zone right" id="tz-right"></div>
+  <div class="controls-hint" id="hint">⬅️➡️ / A·D · TAP venstre/højre side · Auto-hop</div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>KLOAK<br>KLATRER</h1>
+    <p>💩 Klatr op gennem kloakken!<br>Hop fra rør til rør og kom så højt som muligt.<br>Det brune vand stiger HELE TIDEN — stop ikke!<br>Saml 🧻 og 💨 fart-boost.<br><br>⬅️➡️ / A·D · TAP siderne · Auto-hop</p>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">💥</div>
+    <h1 id="go-title">SPLAT!</h1>
+    <p id="go-text">Du nåede <b><span id="final-height">0</span> m</b> op<br>Score: <b><span id="final">0</span></b><br>🧻 indsamlet: <b><span id="final-papers">0</span></b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">PRØV IGEN</button>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Canvas / DPR ----------
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W = window.innerWidth, H = window.innerHeight;
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  // ---------- Constants ----------
+  // Coordinate system: world Y grows DOWNWARD. Player starts at large Y.
+  // Camera "viewY" is the world-Y at the TOP of the visible screen.
+  // height (m) = how far above the start the player has climbed.
+  const START_Y = 0;                  // player starting world Y
+  const SCREEN_PAD = 60;
+  const PLAYER_W = 32;
+  const PLAYER_H = 32;
+  const GRAVITY = 0.55;               // px/frame^2
+  const JUMP_VEL = -13.2;             // base bounce
+  const SPRING_VEL = -22.5;           // bouncy
+  const FART_BOOST_DY = -200;         // immediate Y push (upward)
+  const MAX_FALL = 18;
+  const MOVE_ACCEL = 0.9;
+  const MOVE_FRICTION = 0.82;
+  const MAX_MOVE = 7.0;
+  const PLATFORM_W = 80;
+  const PLATFORM_H = 12;
+  const BASE_GAP = 78;                // average vertical spacing between platforms
+  const WATER_RATE_BASE = 0.5;        // px/frame upward (decreases world Y of water surface)
+  const WATER_ACCEL_PER_M = 0.00025;  // adds to rate per meter climbed
+
+  // Platform type weights (sum doesn't matter; relative)
+  // Distribution shifts with height for difficulty.
+  function pickPlatformType(heightM) {
+    const h = Math.max(0, heightM);
+    // Base weights
+    let w = {
+      solid:      60,
+      moving:     12,
+      bouncy:     10,
+      crumbly:    10,
+      disappearing: 8
+    };
+    if (h > 100) { w.solid -= 5; w.moving += 3; w.crumbly += 2; }
+    if (h > 250) { w.solid -= 5; w.moving += 3; w.disappearing += 4; }
+    if (h > 500) { w.solid -= 8; w.crumbly += 4; w.disappearing += 4; }
+    if (h > 800) { w.solid -= 6; w.moving += 4; w.disappearing += 3; }
+    const total = w.solid + w.moving + w.bouncy + w.crumbly + w.disappearing;
+    let r = Math.random() * total;
+    if ((r -= w.solid) < 0) return 'solid';
+    if ((r -= w.moving) < 0) return 'moving';
+    if ((r -= w.bouncy) < 0) return 'bouncy';
+    if ((r -= w.crumbly) < 0) return 'crumbly';
+    return 'disappearing';
+  }
+
+  // ---------- Game State ----------
+  const state = {
+    running: false,
+    player: {
+      x: W / 2,
+      y: START_Y,
+      vx: 0,
+      vy: 0,
+      squash: 1,        // y-scale modifier (squash/stretch)
+      stretch: 1,       // x-scale modifier
+      facing: 1,
+      onPlatformId: null
+    },
+    viewY: 0,           // world-Y at top of screen
+    waterY: 0,          // world-Y of water surface (rises ⇒ Y decreases)
+    score: 0,
+    height: 0,          // current height in meters above start
+    maxHeight: 0,       // best height this run
+    papers: 0,
+    platformsHit: 0,
+    highScore: 0,
+    platforms: [],      // {id, x, y, w, type, ...}
+    pickups: [],        // {id, x, y, kind, alive}
+    enemies: [],        // {id, x, y, vx, alive}
+    particles: [],
+    nextSpawnY: 0,      // next world-Y where we should spawn a platform (going up)
+    keyL: false,
+    keyR: false,
+    deathAnim: null,
+    paused: false,
+    inputDirTouch: 0,   // -1, 0, 1 from touch zones
+    timeStart: 0,
+    nextPlatformId: 1,
+    nextPickupId: 1,
+    nextEnemyId: 1,
+    floatingPts: []
+  };
+
+  // Persisted highscore (klatrer is not in LS HIGH_KEYS, fall back to localStorage)
+  try {
+    state.highScore = parseInt(localStorage.getItem('klatrer_highscore') || '0', 10) || 0;
+  } catch (e) {}
+
+  // ---------- DOM refs ----------
+  const heightEl = document.getElementById('height');
+  const papersEl = document.getElementById('papers');
+  const waterDistEl = document.getElementById('water-dist');
+  const waterCardEl = document.getElementById('water-card');
+  const highEl = document.getElementById('high');
+  const finalEl = document.getElementById('final');
+  const finalHeightEl = document.getElementById('final-height');
+  const finalPapersEl = document.getElementById('final-papers');
+  const goEmoji = document.getElementById('go-emoji');
+  const goTitle = document.getElementById('go-title');
+  const startOverlay = document.getElementById('start-overlay');
+  const gameOverOverlay = document.getElementById('game-over-overlay');
+  const newBestEl = document.getElementById('new-best');
+  const hint = document.getElementById('hint');
+  const gameEl = document.getElementById('game');
+  const tzLeft = document.getElementById('tz-left');
+  const tzRight = document.getElementById('tz-right');
+
+  highEl.textContent = Math.floor(state.highScore / 10);
+
+  // ---------- Helpers ----------
+  function worldToScreenY(worldY) {
+    // viewY is world-Y at top of screen. screenY = worldY - viewY (BUT player goes UP = lower world Y, so we invert).
+    // To make UP visual = UP on screen, we treat smaller worldY as higher; screenY grows from top.
+    // We'll use convention: higher altitude = MORE NEGATIVE world Y. viewY is top of camera (most negative).
+    // screenY = worldY - viewY (so a world Y of viewY is at screen 0).
+    return worldY - state.viewY;
+  }
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+
+  function addFloatingPts(text, screenX, screenY) {
+    const div = document.createElement('div');
+    div.className = 'floating-pts';
+    div.style.left = screenX + 'px';
+    div.style.top = screenY + 'px';
+    div.textContent = text;
+    gameEl.appendChild(div);
+    setTimeout(() => { try { div.remove(); } catch (e) {} }, 950);
+  }
+
+  // ---------- Spawning ----------
+  function spawnInitial() {
+    state.platforms = [];
+    state.pickups = [];
+    state.enemies = [];
+    state.nextPlatformId = 1;
+    state.nextPickupId = 1;
+    state.nextEnemyId = 1;
+
+    // Big solid base platform under player
+    state.platforms.push({
+      id: state.nextPlatformId++,
+      type: 'solid',
+      x: W / 2 - 120,
+      y: START_Y + 30,
+      w: 240,
+      h: PLATFORM_H,
+      base: true
+    });
+
+    // Pre-fill platforms going up
+    state.nextSpawnY = START_Y - 30;
+    while (state.nextSpawnY > state.viewY - H) {
+      spawnPlatformAt(state.nextSpawnY);
+      state.nextSpawnY -= rand(BASE_GAP * 0.7, BASE_GAP * 1.2);
+    }
+  }
+
+  function spawnPlatformAt(worldY) {
+    const heightM = Math.max(0, Math.floor((START_Y - worldY) / 10));
+    const type = pickPlatformType(heightM);
+    const w = (type === 'bouncy') ? 70 : PLATFORM_W;
+    const x = rand(8, W - w - 8);
+
+    const p = {
+      id: state.nextPlatformId++,
+      type,
+      x, y: worldY,
+      w, h: PLATFORM_H,
+      hit: false,             // for crumbly
+      vanished: false,        // disappearing
+      vanishStart: 0,
+      mvDir: Math.random() < 0.5 ? -1 : 1,
+      mvSpeed: rand(0.8, 1.8) + Math.min(2.5, heightM / 400)
+    };
+    state.platforms.push(p);
+
+    // Random pickup chance
+    const r = Math.random();
+    if (r < 0.18) {
+      // toilet paper
+      state.pickups.push({
+        id: state.nextPickupId++,
+        kind: 'paper',
+        x: x + w / 2,
+        y: worldY - 22,
+        platformId: p.id,
+        alive: true,
+        bobT: Math.random() * Math.PI * 2
+      });
+    } else if (r < 0.21 && heightM > 50) {
+      // fart boost (rarer)
+      state.pickups.push({
+        id: state.nextPickupId++,
+        kind: 'fart',
+        x: x + w / 2,
+        y: worldY - 24,
+        platformId: p.id,
+        alive: true,
+        bobT: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Enemy chance grows with height. Don't spawn on bouncy/crumbly/disappearing to keep them tractable.
+    if (heightM > 80 && (type === 'solid' || type === 'moving') && Math.random() < (0.04 + Math.min(0.18, heightM / 4000))) {
+      state.enemies.push({
+        id: state.nextEnemyId++,
+        x: x + w / 2,
+        y: worldY - 20,
+        vx: (Math.random() < 0.5 ? -1 : 1) * rand(0.6, 1.6),
+        platformId: p.id,
+        alive: true
+      });
+    }
+  }
+
+  function ensurePlatformsAbove() {
+    // Spawn platforms while nextSpawnY (world Y) is still on/above the visible top - buffer
+    const targetY = state.viewY - H * 0.5;
+    while (state.nextSpawnY > targetY) {
+      spawnPlatformAt(state.nextSpawnY);
+      state.nextSpawnY -= rand(BASE_GAP * 0.7, BASE_GAP * 1.2);
+    }
+  }
+
+  function cullBelow() {
+    const cullY = state.viewY + H + 100; // anything way below viewport
+    state.platforms = state.platforms.filter(p => p.y < cullY);
+    state.pickups = state.pickups.filter(pk => pk.y < cullY && pk.alive);
+    state.enemies = state.enemies.filter(en => en.y < cullY && en.alive);
+  }
+
+  // ---------- Input ----------
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') { state.keyL = true; e.preventDefault(); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') { state.keyR = true; e.preventDefault(); }
+    else if (k === ' ' || k === 'Spacebar') {
+      e.preventDefault();
+      // Optional: small boost-jump if currently grounded — used as "manual jump" courtesy
+      // Auto-jump is the main mechanic so this is just a tiny safety bounce
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    const k = e.key;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') state.keyL = false;
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') state.keyR = false;
+  });
+
+  // Touch zones — pointer-style
+  function bindZone(el, dir) {
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); state.inputDirTouch = dir; }, { passive: false });
+    el.addEventListener('touchend',   (e) => { e.preventDefault(); state.inputDirTouch = 0; }, { passive: false });
+    el.addEventListener('touchcancel',(e) => { e.preventDefault(); state.inputDirTouch = 0; }, { passive: false });
+    el.addEventListener('mousedown',  (e) => { e.preventDefault(); state.inputDirTouch = dir; });
+    el.addEventListener('mouseup',    (e) => { e.preventDefault(); state.inputDirTouch = 0; });
+    el.addEventListener('mouseleave', () => { state.inputDirTouch = 0; });
+  }
+  bindZone(tzLeft, -1);
+  bindZone(tzRight, 1);
+
+  // Device tilt
+  if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', (e) => {
+      if (typeof e.gamma === 'number') {
+        // Tilt-based fine-grained control: fold into touch direction when no touch active
+        const g = e.gamma;
+        if (state.inputDirTouch === 0) {
+          if (g < -8) state._tiltDir = -1;
+          else if (g > 8) state._tiltDir = 1;
+          else state._tiltDir = 0;
+        } else {
+          state._tiltDir = 0;
+        }
+      }
+    });
+  }
+
+  // ---------- Game lifecycle ----------
+  function startGame() {
+    state.running = true;
+    state.score = 0;
+    state.height = 0;
+    state.maxHeight = 0;
+    state.papers = 0;
+    state.platformsHit = 0;
+    state.deathAnim = null;
+    state.particles = [];
+    state.player.x = W / 2;
+    state.player.y = START_Y;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.squash = 1;
+    state.player.stretch = 1;
+    state.player.facing = 1;
+    state.player.onPlatformId = null;
+    state.viewY = START_Y - H * 0.6;     // start with player a bit below middle
+    state.waterY = START_Y + 220;        // water starts a bit below the start platform
+    state.timeStart = performance.now();
+    spawnInitial();
+    heightEl.textContent = '0';
+    papersEl.textContent = '0';
+    waterDistEl.textContent = '--';
+    waterCardEl.classList.remove('danger');
+    startOverlay.classList.add('hidden');
+    gameOverOverlay.classList.add('hidden');
+    newBestEl.classList.add('hidden');
+    document.body.classList.add('playing');
+    if (gameEl) { gameEl.classList.remove('warn'); }
+    if (hint) {
+      hint.style.opacity = 1;
+      setTimeout(() => { hint.style.opacity = 0; }, 4000);
+    }
+  }
+
+  function die(kind) {
+    if (state.deathAnim) return;
+    state.deathAnim = { kind, t: 0 };
+    if (gameEl) {
+      gameEl.classList.remove('shake');
+      void gameEl.offsetWidth;
+      gameEl.classList.add('shake');
+      setTimeout(() => gameEl.classList.remove('shake'), 240);
+    }
+    if (window.LS && LS.sfx) LS.sfx.play('splat');
+    // Death particles
+    const px = state.player.x;
+    const pyScreen = worldToScreenY(state.player.y);
+    for (let i = 0; i < 18; i++) {
+      state.particles.push({
+        x: px,
+        y: pyScreen,
+        vx: (Math.random() - 0.5) * 9,
+        vy: -Math.random() * 7 - 1,
+        life: 50,
+        color: kind === 'drown' ? '#5a3a1c' : (kind === 'fly' ? '#222' : '#7a4a22'),
+        size: 4 + Math.random() * 4
+      });
+    }
+  }
+
+  function gameOver() {
+    state.running = false;
+    if (window.LS && LS.sfx) LS.sfx.play('gameover');
+
+    // Final score = pixels climbed (1 pt/px) + paper bonus (+10 each)
+    const finalScore = Math.max(0, Math.floor(state.maxHeight * 10) + state.papers * 10);
+    state.score = finalScore;
+
+    finalEl.textContent = finalScore;
+    finalHeightEl.textContent = Math.floor(state.maxHeight);
+    finalPapersEl.textContent = state.papers;
+
+    const kind = state.deathAnim ? state.deathAnim.kind : 'splat';
+    if (kind === 'drown') { goEmoji.textContent = '🌊'; goTitle.textContent = 'DRUKNET!'; }
+    else if (kind === 'fly') { goEmoji.textContent = '🪰'; goTitle.textContent = 'FLUEN FIK DIG!'; }
+    else if (kind === 'fall') { goEmoji.textContent = '🌊'; goTitle.textContent = 'FALDT NED!'; }
+    else { goEmoji.textContent = '💥'; goTitle.textContent = 'SPLAT!'; }
+
+    let isNew = false;
+    let result = null;
+    const extra = { height: Math.floor(state.maxHeight), papers: state.papers, platformsHit: state.platformsHit };
+    try {
+      result = window.LS && LS.reportGameEnd ? LS.reportGameEnd({
+        gameKey: 'klatrer', score: finalScore, extra
+      }) : null;
+    } catch (e) { result = null; }
+
+    // Always check our own dedicated highscore key (klatrer not in LS.HIGH_KEYS by default)
+    if (finalScore > state.highScore) {
+      state.highScore = finalScore;
+      try { localStorage.setItem('klatrer_highscore', String(state.highScore)); } catch (e) {}
+      isNew = true;
+    }
+    if (result && result.isNewHigh) isNew = true;
+    highEl.textContent = Math.floor(state.highScore / 10);   // we display meters (height) for HUD
+
+    // Fallback daily check: reportGameEnd early-returns when gameKey isn't in HIGH_KEYS,
+    // so call markDailyDone directly to credit the klatrer-high daily.
+    let dailyCompleted = !!(result && result.dailyCompleted);
+    let dailyBonus = (result && result.dailyBonus) || 0;
+    if (!dailyCompleted && window.LS && LS.markDailyDone) {
+      try {
+        const dm = LS.markDailyDone('klatrer', extra);
+        if (dm && dm.completed) {
+          dailyCompleted = true;
+          if (dm.bonusPaid && LS.addCoins) {
+            LS.addCoins(50, { silent: true, gameKey: 'klatrer', reason: 'daily-bonus' });
+            dailyBonus = 50;
+          }
+        }
+      } catch (e) {}
+    }
+    if (dailyCompleted && window.LS && LS.toast) {
+      LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (dailyBonus || 0) + ' 🪙', { duration: 2800 });
+    }
+
+    document.body.classList.remove('playing');
+    if (gameEl) { gameEl.classList.remove('warn'); gameEl.classList.remove('shake'); }
+    setTimeout(() => {
+      if (isNew) newBestEl.classList.remove('hidden');
+      gameOverOverlay.classList.remove('hidden');
+    }, 700);
+  }
+
+  // ---------- Update ----------
+  let lastT = 0;
+  function update(dtMs) {
+    if (!state.running) return;
+
+    // Keep dt scaled so that physics tuned at 60fps (1 unit per frame) work
+    const f = dtMs / (1000 / 60);
+
+    if (state.deathAnim) {
+      state.deathAnim.t += dtMs;
+      // also keep player visually falling
+      state.player.vy += GRAVITY * f * 0.6;
+      state.player.y += state.player.vy * f;
+      if (state.deathAnim.t > 900) gameOver();
+      // Update particles (using screen coords)
+      updateParticles(f);
+      return;
+    }
+
+    const p = state.player;
+
+    // ---- Input → horizontal velocity ----
+    let dirInput = 0;
+    if (state.keyL) dirInput -= 1;
+    if (state.keyR) dirInput += 1;
+    if (dirInput === 0 && state.inputDirTouch !== 0) dirInput = state.inputDirTouch;
+    if (dirInput === 0 && state._tiltDir) dirInput = state._tiltDir;
+
+    if (dirInput !== 0) {
+      p.vx += dirInput * MOVE_ACCEL * f;
+      p.facing = dirInput > 0 ? 1 : -1;
+    } else {
+      p.vx *= Math.pow(MOVE_FRICTION, f);
+      if (Math.abs(p.vx) < 0.05) p.vx = 0;
+    }
+    if (p.vx > MAX_MOVE) p.vx = MAX_MOVE;
+    if (p.vx < -MAX_MOVE) p.vx = -MAX_MOVE;
+
+    // ---- Gravity / vertical ----
+    p.vy += GRAVITY * f;
+    if (p.vy > MAX_FALL) p.vy = MAX_FALL;
+
+    // Save previous Y for landing detection (we only land when falling and crossing top edge)
+    const prevY = p.y;
+    p.y += p.vy * f;
+    p.x += p.vx * f;
+
+    // Edge wrap
+    if (p.x < -PLAYER_W / 2) p.x = W + PLAYER_W / 2;
+    else if (p.x > W + PLAYER_W / 2) p.x = -PLAYER_W / 2;
+
+    // ---- Platform updates (moving + disappear timers) ----
+    for (const pl of state.platforms) {
+      if (pl.type === 'moving') {
+        pl.x += pl.mvDir * pl.mvSpeed * f;
+        if (pl.x < 6) { pl.x = 6; pl.mvDir = 1; }
+        if (pl.x + pl.w > W - 6) { pl.x = W - 6 - pl.w; pl.mvDir = -1; }
+      }
+      if (pl.type === 'disappearing' && pl.vanishStart > 0 && !pl.vanished) {
+        if (performance.now() - pl.vanishStart > 1500) pl.vanished = true;
+      }
+    }
+
+    // ---- Collision: only when falling (vy > 0) and player feet crossed platform top ----
+    if (p.vy > 0) {
+      const playerLeft = p.x - PLAYER_W / 2 + 4;
+      const playerRight = p.x + PLAYER_W / 2 - 4;
+      const playerFeetPrev = prevY + PLAYER_H / 2;
+      const playerFeetNow = p.y + PLAYER_H / 2;
+
+      for (const pl of state.platforms) {
+        if (pl.vanished) continue;
+        if (pl.type === 'crumbly' && pl.hit) continue;
+        const top = pl.y;
+        if (playerFeetPrev <= top && playerFeetNow >= top) {
+          if (playerRight > pl.x && playerLeft < pl.x + pl.w) {
+            // Land
+            handleLanding(pl);
+            // Position player on top
+            p.y = top - PLAYER_H / 2;
+            break;
+          }
+        }
+      }
+    }
+
+    // ---- Pickup collision ----
+    for (const pk of state.pickups) {
+      if (!pk.alive) continue;
+      pk.bobT += dtMs * 0.005;
+      const dx = p.x - pk.x;
+      const dy = p.y - pk.y;
+      if (Math.abs(dx) < 24 && Math.abs(dy) < 24) {
+        pk.alive = false;
+        if (pk.kind === 'paper') {
+          state.papers += 1;
+          state.score += 10;
+          papersEl.textContent = state.papers;
+          if (window.LS && LS.sfx) LS.sfx.play('coin');
+          addFloatingPts('+10 🧻', pk.x, worldToScreenY(pk.y));
+        } else if (pk.kind === 'fart') {
+          // instant +200 px height boost
+          p.y -= 200;
+          p.vy = JUMP_VEL * 1.4;
+          if (window.LS && LS.sfx) { LS.sfx.play('boost'); LS.sfx.play('fart'); }
+          addFloatingPts('+200! 💨', pk.x, worldToScreenY(pk.y));
+          // Spawn smoke particles
+          for (let i = 0; i < 14; i++) {
+            state.particles.push({
+              x: p.x, y: worldToScreenY(p.y),
+              vx: (Math.random() - 0.5) * 4,
+              vy: 1 + Math.random() * 3,
+              life: 35, color: '#a08c5b', size: 5 + Math.random() * 4
+            });
+          }
+        }
+      }
+    }
+
+    // ---- Enemy collision (fly) ----
+    for (const en of state.enemies) {
+      if (!en.alive) continue;
+      const pl = state.platforms.find(pp => pp.id === en.platformId);
+      if (pl && !pl.vanished) {
+        en.x += en.vx * f;
+        if (en.x < pl.x + 8) { en.x = pl.x + 8; en.vx *= -1; }
+        if (en.x > pl.x + pl.w - 8) { en.x = pl.x + pl.w - 8; en.vx *= -1; }
+        en.y = pl.y - 18;
+      } else {
+        en.y += 1.5 * f; // drift down if platform gone
+      }
+      const dx = p.x - en.x;
+      const dy = p.y - en.y;
+      if (Math.abs(dx) < 22 && Math.abs(dy) < 22) {
+        die('fly');
+        return;
+      }
+    }
+
+    // ---- Track height & camera scroll ----
+    // Height in meters: how far above start (lower world Y) the player is
+    const altitudePx = Math.max(0, START_Y - p.y);
+    const meters = altitudePx / 10;
+    if (meters > state.maxHeight) {
+      const inc = Math.floor(meters) - Math.floor(state.maxHeight);
+      state.maxHeight = meters;
+      if (inc > 0) heightEl.textContent = Math.floor(state.maxHeight);
+    }
+    state.height = meters;
+
+    // Camera: only scroll up when player goes higher than half the screen
+    const targetTop = p.y - H * 0.45;
+    if (targetTop < state.viewY) state.viewY = targetTop;
+
+    // ---- Water rise ----
+    const rate = WATER_RATE_BASE + state.maxHeight * WATER_ACCEL_PER_M * 60; // accel grows over time
+    state.waterY -= rate * f;
+
+    // Water-distance HUD (m): from player's feet down to water surface
+    const waterDistPx = state.waterY - (p.y + PLAYER_H / 2);
+    const waterDistM = Math.max(0, Math.floor(waterDistPx / 10));
+    waterDistEl.textContent = waterDistM;
+
+    if (waterDistPx < 100) {
+      waterCardEl.classList.add('danger');
+      gameEl.classList.add('warn');
+    } else {
+      waterCardEl.classList.remove('danger');
+      gameEl.classList.remove('warn');
+    }
+
+    // ---- Death conditions ----
+    // 1) Touched water
+    if (p.y + PLAYER_H / 2 >= state.waterY) {
+      die('drown');
+      return;
+    }
+    // 2) Fell off bottom of visible area
+    if (p.y > state.viewY + H + PLAYER_H) {
+      die('fall');
+      return;
+    }
+
+    // ---- Squash / stretch decay ----
+    p.squash = p.squash + (1 - p.squash) * Math.min(1, dtMs / 120);
+    p.stretch = p.stretch + (1 - p.stretch) * Math.min(1, dtMs / 120);
+
+    // Spawn more platforms above and cull below
+    ensurePlatformsAbove();
+    cullBelow();
+    updateParticles(f);
+  }
+
+  function handleLanding(pl) {
+    state.platformsHit += 1;
+    const p = state.player;
+    // Squash/stretch on landing
+    p.squash = 0.7;
+    p.stretch = 1.25;
+
+    if (pl.type === 'bouncy') {
+      p.vy = SPRING_VEL;
+      if (window.LS && LS.sfx) LS.sfx.play('powerup');
+    } else if (pl.type === 'crumbly') {
+      pl.hit = true;
+      p.vy = JUMP_VEL;
+      if (window.LS && LS.sfx) { LS.sfx.play('jump'); LS.sfx.play('click'); }
+      // crumble particles
+      for (let i = 0; i < 8; i++) {
+        state.particles.push({
+          x: pl.x + pl.w / 2 + (Math.random() - 0.5) * pl.w,
+          y: worldToScreenY(pl.y),
+          vx: (Math.random() - 0.5) * 4,
+          vy: 1 + Math.random() * 2,
+          life: 30, color: '#7a3320', size: 3 + Math.random() * 3
+        });
+      }
+    } else if (pl.type === 'disappearing') {
+      if (pl.vanishStart === 0) pl.vanishStart = performance.now();
+      p.vy = JUMP_VEL;
+      if (window.LS && LS.sfx) LS.sfx.play('jump');
+    } else {
+      // solid + moving
+      p.vy = JUMP_VEL;
+      if (window.LS && LS.sfx) LS.sfx.play('jump');
+    }
+  }
+
+  function updateParticles(f) {
+    for (const pt of state.particles) {
+      pt.x += pt.vx * f;
+      pt.y += pt.vy * f;
+      pt.vy += 0.3 * f;
+      pt.life -= f;
+    }
+    state.particles = state.particles.filter(pt => pt.life > 0);
+  }
+
+  // ---------- Render ----------
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    drawBackground();
+    drawPlatforms();
+    drawPickups();
+    drawEnemies();
+    drawWater();
+    drawPlayer();
+    drawParticles();
+  }
+
+  function drawBackground() {
+    // Vertical gradient — dark sewer
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#1a0a02');
+    g.addColorStop(1, '#3b2509');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle vertical brick lines, scrolling with camera
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#0a0500';
+    const colW = 60;
+    const offsetX = ((-state.viewY * 0.05) % colW + colW) % colW;
+    for (let x = -colW + offsetX; x < W + colW; x += colW) {
+      ctx.fillRect(x, 0, 2, H);
+    }
+    // Horizontal brick rows scrolling
+    const rowH = 36;
+    const offsetY = ((-state.viewY) % rowH + rowH) % rowH;
+    ctx.fillStyle = '#0a0500';
+    ctx.globalAlpha = 0.12;
+    for (let y = -rowH + offsetY; y < H + rowH; y += rowH) {
+      ctx.fillRect(0, y, W, 1);
+    }
+    // Random bricks pattern
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = '#5a350a';
+    for (let y = -rowH + offsetY; y < H + rowH; y += rowH) {
+      for (let x = 0; x < W; x += colW) {
+        const r = ((x * 31) ^ (Math.floor((y + state.viewY) / rowH) * 17)) & 7;
+        if (r === 0) ctx.fillRect(x + 4, y + 4, colW - 12, rowH - 10);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawPlatforms() {
+    for (const pl of state.platforms) {
+      const sy = worldToScreenY(pl.y);
+      if (sy < -40 || sy > H + 40) continue;
+      const w = pl.w, h = pl.h, x = pl.x;
+      let mainColor = '#7a4a22';
+      let edgeColor = '#3b2509';
+      let topColor = '#9c6738';
+      let alpha = 1;
+
+      if (pl.type === 'bouncy') {
+        mainColor = '#caa53a';
+        topColor = '#ffd23f';
+        edgeColor = '#3b2509';
+      } else if (pl.type === 'crumbly') {
+        mainColor = pl.hit ? '#5a2a1c' : '#8a3a26';
+        topColor = pl.hit ? '#3a1810' : '#b14530';
+        edgeColor = '#2a0a04';
+      } else if (pl.type === 'disappearing') {
+        if (pl.vanished) continue;
+        if (pl.vanishStart > 0) {
+          const t = (performance.now() - pl.vanishStart) / 1500;
+          alpha = Math.max(0.1, 1 - t);
+        }
+        mainColor = '#5a3a52';
+        topColor = '#7c5a72';
+      } else if (pl.type === 'moving') {
+        mainColor = '#6a4a8a';
+        topColor = '#8a6aaa';
+      }
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      roundRect(ctx, x + 2, sy + h - 2, w, 4, 2);
+      ctx.fill();
+      // base
+      ctx.fillStyle = mainColor;
+      roundRect(ctx, x, sy, w, h, 4);
+      ctx.fill();
+      // top highlight
+      ctx.fillStyle = topColor;
+      roundRect(ctx, x, sy, w, 4, 3);
+      ctx.fill();
+      // outline
+      ctx.strokeStyle = edgeColor;
+      ctx.lineWidth = 2.5;
+      roundRect(ctx, x, sy, w, h, 4);
+      ctx.stroke();
+
+      // texture: brick segments
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const xx = x + (w / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(xx, sy + 4);
+        ctx.lineTo(xx, sy + h - 1);
+        ctx.stroke();
+      }
+
+      // accents per type
+      if (pl.type === 'bouncy') {
+        // Spring icon
+        ctx.fillStyle = '#3b2509';
+        ctx.font = '14px ' + EMOJI_FONT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🪀', x + w / 2, sy - 8);
+        // Gold bolts
+        ctx.fillStyle = '#ffd23f';
+        ctx.beginPath(); ctx.arc(x + 6, sy + 6, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x + w - 6, sy + 6, 1.6, 0, Math.PI * 2); ctx.fill();
+      } else if (pl.type === 'crumbly') {
+        // Cracks
+        ctx.strokeStyle = '#2a0a04';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(x + w * 0.2, sy + 1);
+        ctx.lineTo(x + w * 0.3, sy + h * 0.7);
+        ctx.lineTo(x + w * 0.45, sy + h * 0.4);
+        ctx.lineTo(x + w * 0.55, sy + h - 1);
+        ctx.moveTo(x + w * 0.7, sy + 1);
+        ctx.lineTo(x + w * 0.75, sy + h - 1);
+        ctx.stroke();
+      } else if (pl.type === 'disappearing') {
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 2, sy + 2, w - 4, h - 4);
+        ctx.setLineDash([]);
+      } else if (pl.type === 'moving') {
+        // Arrow
+        ctx.fillStyle = '#fff9e6';
+        ctx.font = '10px ' + EMOJI_FONT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pl.mvDir > 0 ? '▶' : '◀', x + w / 2, sy + h / 2);
+      }
+
+      ctx.restore();
+    }
+  }
+
+  function drawPickups() {
+    for (const pk of state.pickups) {
+      if (!pk.alive) continue;
+      const sy = worldToScreenY(pk.y) + Math.sin(pk.bobT) * 3;
+      if (sy < -40 || sy > H + 40) continue;
+      ctx.save();
+      ctx.font = (pk.kind === 'fart' ? '24' : '20') + 'px ' + EMOJI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = pk.kind === 'fart' ? '#9b59b6' : '#ffd23f';
+      ctx.shadowBlur = 8;
+      ctx.fillText(pk.kind === 'fart' ? '💨' : '🧻', pk.x, sy);
+      ctx.restore();
+    }
+  }
+
+  function drawEnemies() {
+    for (const en of state.enemies) {
+      if (!en.alive) continue;
+      const sy = worldToScreenY(en.y);
+      if (sy < -40 || sy > H + 40) continue;
+      ctx.save();
+      ctx.font = '20px ' + EMOJI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 4;
+      // Wing flap effect
+      const flap = 1 + Math.sin(performance.now() / 60) * 0.1;
+      ctx.translate(en.x, sy);
+      ctx.scale(en.vx > 0 ? -flap : flap, flap);
+      ctx.fillText('🪰', 0, 0);
+      ctx.restore();
+    }
+  }
+
+  function drawWater() {
+    const surfaceScreenY = worldToScreenY(state.waterY);
+    if (surfaceScreenY > H + 40) return;
+    const drawY = Math.max(-20, surfaceScreenY);
+
+    ctx.save();
+    // Body of water
+    const g = ctx.createLinearGradient(0, drawY, 0, H);
+    g.addColorStop(0, '#5d4021');
+    g.addColorStop(0.4, '#4a3318');
+    g.addColorStop(1, '#2a1a08');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, drawY, W, H - drawY);
+
+    // Wavy top edge (sin displaced)
+    ctx.beginPath();
+    const t = performance.now() / 300;
+    const amp = 5;
+    const period = 50;
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, drawY + Math.sin(t) * amp);
+    for (let x = 0; x <= W; x += 4) {
+      const y = drawY + Math.sin((x / period) + t) * amp;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    // Foam highlight
+    ctx.beginPath();
+    ctx.moveTo(0, drawY + Math.sin(t) * amp);
+    for (let x = 0; x <= W; x += 4) {
+      const y = drawY + Math.sin((x / period) + t) * amp;
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(170, 130, 60, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Bubbles
+    for (let i = 0; i < 6; i++) {
+      const bx = ((t * 30 + i * 130) % (W + 100)) - 50;
+      const by = drawY + 20 + ((t * 60 + i * 47) % (H - drawY - 40));
+      ctx.fillStyle = 'rgba(255, 220, 100, ' + (0.15 + (i % 3) * 0.05) + ')';
+      ctx.beginPath();
+      ctx.arc(bx, by, 3 + (i % 2) * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    const p = state.player;
+    const sy = worldToScreenY(p.y);
+
+    ctx.save();
+    // Shadow disc on platform-ish below
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, sy + PLAYER_H / 2 + 4, PLAYER_W * 0.35, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Speed lines if falling fast
+    if (p.vy > 8) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 1.8;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(p.x + i * 8, sy - 12);
+        ctx.lineTo(p.x + i * 8 + (Math.random() - 0.5) * 2, sy - 26);
+        ctx.stroke();
+      }
+    }
+
+    // Squash/stretch
+    let sX = p.stretch, sY = p.squash;
+    // If rising fast, stretch vertically
+    if (p.vy < -6) { sX = 0.85; sY = 1.2; }
+
+    // Death anim
+    let alpha = 1, rot = 0;
+    if (state.deathAnim) {
+      const t = state.deathAnim.t / 900;
+      if (state.deathAnim.kind === 'drown') alpha = 1 - t * 0.6;
+      else rot = t * Math.PI;
+    }
+
+    ctx.translate(p.x, sy);
+    ctx.rotate(rot);
+    ctx.scale(sX * (p.facing >= 0 ? 1 : -1), sY);
+    ctx.globalAlpha = alpha;
+    ctx.font = Math.floor(PLAYER_H * 1.05) + 'px ' + EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText('💩', 0, 0);
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (const pt of state.particles) {
+      ctx.globalAlpha = Math.max(0, pt.life / 50);
+      ctx.fillStyle = pt.color;
+      ctx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // ---------- Main loop ----------
+  function frame(t) {
+    const dtMs = Math.min(40, t - lastT) || 16;
+    lastT = t;
+    update(dtMs);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- Buttons ----------
+  document.getElementById('start-btn').onclick = startGame;
+  document.getElementById('restart-btn').onclick = startGame;
+
+  // Mount mute button (shared module)
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+  });
+  if (document.readyState !== 'loading' && window.LS && window.LS.mountMuteButton) {
+    window.LS.mountMuteButton();
+  }
+
+  // Pre-render: show resting player on start screen
+  state.viewY = -H * 0.6;
+  state.waterY = 220;
+  state.player.y = 0;
+  state.player.x = W / 2;
+
+})();
+</script>
+</body>
+</html>

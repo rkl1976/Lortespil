@@ -1,0 +1,227 @@
+/* Lortespil v2 - shared styling (loaded alongside per-game CSS) */
+@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600;700&display=swap');
+
+:root {
+  --ls-cream: #fff9e6;
+  --ls-brown: #3b2509;
+  --ls-brown-light: #4a3018;
+  --ls-gold: #ffd23f;
+  --ls-pink: #ff4e6b;
+  --ls-gold-light: #ffdf7a;
+}
+
+/* ---------- HUD score card ---------- */
+.ls-score-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ls-cream);
+  color: var(--ls-brown);
+  border: 3px solid var(--ls-brown);
+  border-radius: 14px;
+  padding: 8px 14px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  box-shadow: 3px 3px 0 var(--ls-brown);
+  line-height: 1;
+}
+
+/* ---------- back to portal button ---------- */
+.ls-back-btn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 60;
+  background: var(--ls-cream);
+  color: var(--ls-brown);
+  border: 3px solid var(--ls-brown);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 15px;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--ls-brown);
+  cursor: pointer;
+  transition: transform 0.05s ease;
+}
+.ls-back-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ls-brown);
+}
+
+/* ---------- overlay modal ---------- */
+.ls-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: radial-gradient(ellipse at center, rgba(59, 37, 9, 0.82) 0%, rgba(20, 10, 2, 0.92) 80%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--ls-cream);
+  text-align: center;
+  font-family: 'Fredoka', system-ui, sans-serif;
+}
+.ls-overlay h1, .ls-overlay h2 {
+  font-family: 'Bungee', system-ui, sans-serif;
+  color: var(--ls-gold);
+  text-shadow: 3px 3px 0 var(--ls-brown);
+  letter-spacing: 1px;
+  line-height: 1.1;
+  margin: 0;
+}
+.ls-overlay h1 { font-size: clamp(28px, 7vw, 56px); }
+.ls-overlay h2 { font-size: clamp(20px, 5vw, 36px); }
+.ls-overlay p {
+  max-width: 560px;
+  font-size: clamp(14px, 3.5vw, 18px);
+  line-height: 1.4;
+}
+
+/* ---------- big button ---------- */
+.ls-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--ls-gold);
+  color: var(--ls-brown);
+  border: 4px solid var(--ls-brown);
+  border-radius: 16px;
+  padding: 14px 26px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: clamp(16px, 4vw, 22px);
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 6px 6px 0 var(--ls-brown);
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+  user-select: none;
+}
+.ls-btn:hover { background: var(--ls-gold-light); }
+.ls-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 3px 3px 0 var(--ls-brown);
+}
+.ls-btn.ls-btn-pink {
+  background: var(--ls-pink);
+  color: var(--ls-cream);
+}
+.ls-btn:disabled, .ls-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}
+
+/* ---------- toast ---------- */
+.ls-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translate(-50%, -20px);
+  z-index: 300;
+  background: var(--ls-cream);
+  color: var(--ls-brown);
+  border: 3px solid var(--ls-brown);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  box-shadow: 3px 3px 0 var(--ls-brown);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  white-space: nowrap;
+}
+.ls-toast-show {
+  animation: ls-toast-in 0.35s ease forwards;
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.ls-toast-hide {
+  opacity: 0;
+  transform: translate(-50%, -20px);
+}
+@keyframes ls-toast-in {
+  0%   { opacity: 0; transform: translate(-50%, -30px) scale(0.85); }
+  70%  { opacity: 1; transform: translate(-50%, 4px) scale(1.05); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/* ---------- mute button (top-right) ---------- */
+.ls-mute {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 50;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--ls-brown);
+  background: var(--ls-cream);
+  color: var(--ls-brown);
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--ls-brown);
+  padding: 0;
+  user-select: none;
+}
+.ls-mute:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ls-brown);
+}
+
+/* ---------- coin badge ---------- */
+.ls-coin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ls-gold);
+  color: var(--ls-brown);
+  border: 2px solid var(--ls-brown);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-family: 'Bungee', system-ui, sans-serif;
+  font-size: 14px;
+  box-shadow: 2px 2px 0 var(--ls-brown);
+  line-height: 1;
+}
+.ls-coin-badge::before { content: '🪙'; font-size: 14px; }
+
+/* ---------- reusable animations ---------- */
+.ls-wiggle { animation: ls-wiggle 0.35s infinite alternate ease-in-out; transform-origin: center; display: inline-block; }
+.ls-bob    { animation: ls-bob 1s infinite alternate ease-in-out; display: inline-block; }
+.ls-sparkle {
+  position: absolute;
+  font-family: 'Bungee', system-ui, sans-serif;
+  color: var(--ls-cream);
+  text-shadow: 2px 2px 0 var(--ls-brown);
+  font-size: 32px;
+  pointer-events: none;
+  animation: ls-sparkle 0.7s forwards ease-out;
+  z-index: 15;
+}
+
+@keyframes ls-wiggle {
+  0%   { transform: rotate(-10deg) scale(1, 0.95); }
+  100% { transform: rotate(10deg) scale(1.05, 1.05); }
+}
+@keyframes ls-bob {
+  from { transform: translate(-50%, -58%) rotate(-8deg); }
+  to   { transform: translate(-50%, -45%) rotate(8deg); }
+}
+@keyframes ls-sparkle {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.4); }
+  100% { opacity: 0; transform: translate(-50%, -180%) scale(1.4); }
+}

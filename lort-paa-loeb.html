@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Lort på Løb - Verdensturné</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; }
@@ -35,6 +37,17 @@
   .poop-inner {
     display: inline-block;
     animation: wiggle 0.35s infinite alternate ease-in-out;
+  }
+  .poop-hat {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 36px;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.25));
+    animation: wiggle 0.5s infinite alternate ease-in-out;
+    pointer-events: none;
+    z-index: 11;
   }
   @keyframes wiggle {
     0% { transform: rotate(-10deg) scale(1, 0.95); }
@@ -537,7 +550,12 @@ window.addEventListener('resize', () => {
    ============================================================ */
 const poopEl = document.createElement('div');
 poopEl.className = 'poop';
-poopEl.innerHTML = '<span class="poop-inner">💩</span>';
+function renderPoopVisual() {
+  const hat = (window.LS && LS.getEquippedHat && (function(){ try { return LS.getEquippedHat(); } catch(e){ return ''; } })()) || '';
+  poopEl.innerHTML = (hat ? `<span class="poop-hat">${hat}</span>` : '') +
+                     '<span class="poop-inner">💩</span>';
+}
+renderPoopVisual();
 game.appendChild(poopEl);
 
 function updatePoop() {
@@ -714,6 +732,7 @@ function loop(t) {
         runScore++;
         score++;
         scoreEl.textContent = score;
+        if (window.LS && LS.sfx) { try { LS.sfx.play('coin'); } catch(e){} }
         updateProgress();
         if (runScore >= currentWorld.target) {
           levelClear();
@@ -727,6 +746,7 @@ function loop(t) {
       sparkleAt(powerUp.x, powerUp.y, 'BOOM!');
       powerUp.el.remove();
       powerUp = null;
+      if (window.LS && LS.sfx) { try { LS.sfx.play('powerup'); } catch(e){} try { LS.sfx.play('zap'); } catch(e){} }
       killAllEnemies();
     }
 
@@ -788,6 +808,7 @@ function startGame(idx) {
   setWorld(idx);
   runScore = 0;
   clearField();
+  renderPoopVisual();
   poop.x = W/2; poop.y = H/2;
   poop.tx = W/2; poop.ty = H/2;
   running = true;
@@ -805,6 +826,7 @@ function startGame(idx) {
 function levelClear() {
   running = false;
   clearField();
+  if (window.LS && LS.sfx) { try { LS.sfx.play('levelup'); } catch(e){} }
   // unlock next world
   if (worldIdx + 1 > unlocked - 1 && worldIdx + 1 < WORLDS.length) {
     unlocked = Math.min(WORLDS.length, worldIdx + 2);
@@ -835,6 +857,10 @@ function gameOver(enemyKind) {
   running = false;
   game.classList.add('shake');
   setTimeout(() => game.classList.remove('shake'), 500);
+  if (window.LS && LS.sfx) {
+    try { LS.sfx.play('splat'); } catch(e){}
+    try { LS.sfx.play('gameover'); } catch(e){}
+  }
   finalScoreEl.textContent = runScore;
   gameOverEmojiEl.textContent = enemyKind || '🪰';
   const messages = {
@@ -848,12 +874,36 @@ function gameOver(enemyKind) {
     '🛸': 'Et UFO fangede dig!'
   };
   gameOverText.innerHTML = `${messages[enemyKind] || 'Du blev spist!'}<br>Du samlede <b><span id="final-score">${runScore}</span></b> ${currentWorld.collectibleLabel}`;
+  const result = window.LS ? (function(){
+    try {
+      return LS.reportGameEnd({
+        gameKey: 'poop',
+        score,
+        extra: { worldReached: worldIdx + 1, score }
+      });
+    } catch(e) { return null; }
+  })() : null;
   let isNewBest = false;
-  if (score > highScore) {
-    highScore = score;
-    highEl.textContent = highScore;
-    isNewBest = score > 0;
-    localStorage.setItem('poop_highscore', highScore);
+  if (result) {
+    isNewBest = !!result.isNewHigh;
+    if (result.totalCoins != null) { /* LS module also bumps coins internally */ }
+    // LS updates poop_highscore internally; reflect locally
+    const fresh = parseInt(localStorage.getItem('poop_highscore') || '0', 10);
+    if (fresh > highScore) {
+      highScore = fresh;
+      highEl.textContent = highScore;
+    }
+    if (result.dailyCompleted && LS.toast) {
+      try { LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 }); } catch(e){}
+    }
+  } else {
+    // Fallback: original localStorage-only path
+    if (score > highScore) {
+      highScore = score;
+      highEl.textContent = highScore;
+      isNewBest = score > 0;
+      localStorage.setItem('poop_highscore', highScore);
+    }
   }
   document.body.classList.remove('playing');
   setTimeout(() => {
@@ -882,6 +932,22 @@ nextBtn.addEventListener('click', () => {
     startGame(worldIdx + 1);
   }
 });
+
+// Re-render poop (hat) when page regains focus, and mount mute button if LS present
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) renderPoopVisual();
+});
+window.addEventListener('pageshow', () => renderPoopVisual());
+document.addEventListener('DOMContentLoaded', () => {
+  renderPoopVisual();
+  if (window.LS && LS.mountMuteButton) {
+    try { LS.mountMuteButton(); } catch(e) { /* ignore */ }
+  }
+});
+// Also attempt immediately in case the deferred script has already loaded
+if (window.LS && LS.mountMuteButton) {
+  try { LS.mountMuteButton(); } catch(e) { /* ignore */ }
+}
 </script>
 </body>
 </html>

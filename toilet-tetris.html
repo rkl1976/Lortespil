@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Toilet-Tetris</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; }
@@ -180,6 +182,309 @@
     0%, 100% { filter: none; }
     50% { filter: brightness(2.5) saturate(0); }
   }
+
+  /* Stink meter */
+  #stink-wrap {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 11px;
+    color: #3b2509;
+    margin-bottom: 2px;
+  }
+  #stink-bar-outer {
+    flex: 1;
+    height: 14px;
+    background: #efe6d2;
+    border: 3px solid #3b2509;
+    border-radius: 8px;
+    box-shadow: 2px 2px 0 #3b2509;
+    overflow: hidden;
+    position: relative;
+  }
+  #stink-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #a8e06a 0%, #4e8f2a 70%, #2f5f1a 100%);
+    transition: width 0.25s ease, background 0.4s, filter 0.3s;
+    border-radius: 4px;
+  }
+  #stink-bar.danger {
+    background: linear-gradient(90deg, #ff9a6a 0%, #e04030 60%, #8a1a10 100%);
+    animation: stinkShake 0.25s infinite;
+    filter: drop-shadow(0 0 6px rgba(224,64,48,0.6));
+  }
+  @keyframes stinkShake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-1px); }
+    75% { transform: translateX(1px); }
+  }
+
+  /* Flush wipe */
+  .flush-wrap {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: 6px;
+  }
+  .flush-wipe {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #7dc6ff 0%, #4a9fd6 100%);
+    opacity: 0.7;
+    transform: translateY(-100%);
+    animation: flushWipe 0.4s cubic-bezier(.55,.05,.6,1.05) forwards;
+  }
+  @keyframes flushWipe {
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(100%);  }
+  }
+
+  /* Board container for relative positioning */
+  #board-holder { position: relative; display: inline-block; }
+
+  /* Mega-flush screen shake */
+  .shaking { animation: shakey 0.3s; }
+  @keyframes shakey {
+    0%,100% { transform: translate(0,0); }
+    15% { transform: translate(-4px, -2px) rotate(-0.4deg); }
+    30% { transform: translate(4px, 2px) rotate(0.4deg); }
+    45% { transform: translate(-3px, 2px); }
+    60% { transform: translate(3px, -2px); }
+    75% { transform: translate(-2px, 0); }
+    90% { transform: translate(2px, 0); }
+  }
+
+  /* Wave particles */
+  .wave-particle {
+    position: absolute;
+    font-size: 24px;
+    pointer-events: none;
+    animation: waveFall 1.2s linear forwards;
+    z-index: 5;
+  }
+  @keyframes waveFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(420px) rotate(360deg); opacity: 0; }
+  }
+
+  /* TETRIS-FLUSH big text */
+  .tetris-text {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-4deg);
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(28px, 7vw, 44px);
+    color: #ffd23f;
+    text-shadow: 3px 3px 0 #3b2509, 6px 6px 0 rgba(0,0,0,0.35);
+    z-index: 6;
+    pointer-events: none;
+    animation: tetrisPop 1s ease forwards;
+  }
+  @keyframes tetrisPop {
+    0%   { transform: translate(-50%,-50%) rotate(-4deg) scale(0.3); opacity: 0; }
+    20%  { transform: translate(-50%,-50%) rotate(-4deg) scale(1.15); opacity: 1; }
+    80%  { transform: translate(-50%,-50%) rotate(-4deg) scale(1); opacity: 1; }
+    100% { transform: translate(-50%,-50%) rotate(-4deg) scale(1.05); opacity: 0; }
+  }
+
+  /* mid-game coin toast */
+  .coin-pop {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    transform: translate(-50%, 0);
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    color: #ffd23f;
+    text-shadow: 2px 2px 0 #3b2509;
+    pointer-events: none;
+    z-index: 7;
+    animation: coinRise 1.1s ease-out forwards;
+  }
+  @keyframes coinRise {
+    0%   { transform: translate(-50%, 10px); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(-50%, -50px); opacity: 0; }
+  }
+
+  /* --- Toilet bowl framing --- */
+  #toilet-frame {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0;
+  }
+  .cistern {
+    position: relative;
+    width: 100%;
+    height: 54px;
+    background: linear-gradient(180deg, #f2eee4 0%, #e0dcd0 55%, #c8c2b4 100%);
+    border: 4px solid #3b2509;
+    border-bottom: none;
+    border-radius: 14px 14px 6px 6px;
+    box-shadow: 6px 3px 0 #3b2509, inset 0 4px 0 rgba(255,255,255,0.5), inset 0 -6px 0 rgba(0,0,0,0.08);
+    margin-bottom: -4px;
+    overflow: hidden;
+  }
+  .cistern::before {
+    content: '';
+    position: absolute;
+    left: 10%;
+    right: 18%;
+    top: 10px;
+    height: 8px;
+    background: #3b2509;
+    opacity: 0.12;
+    border-radius: 4px;
+  }
+  .cistern::after {
+    content: '';
+    position: absolute;
+    left: 12%;
+    right: 20%;
+    top: 26px;
+    height: 6px;
+    background: #3b2509;
+    opacity: 0.08;
+    border-radius: 3px;
+  }
+  .flush-handle {
+    position: absolute;
+    right: 10px;
+    top: 14px;
+    width: 28px;
+    height: 14px;
+    background: linear-gradient(180deg, #ffd23f 0%, #d49d18 100%);
+    border: 3px solid #3b2509;
+    border-radius: 4px;
+    box-shadow: 2px 2px 0 #3b2509;
+    z-index: 2;
+  }
+  .flush-handle::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 2px;
+    width: 8px;
+    height: 4px;
+    background: #3b2509;
+    border-radius: 2px;
+  }
+  .bowl-wrap {
+    position: relative;
+    display: inline-block;
+    padding: 0 14px;
+    background:
+      linear-gradient(90deg, #e0dcd0 0%, #f2eee4 20%, #f2eee4 80%, #c8c2b4 100%);
+    border-left: 4px solid #3b2509;
+    border-right: 4px solid #3b2509;
+    box-shadow: 6px 0 0 #3b2509;
+  }
+  .bowl-wrap::before,
+  .bowl-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    pointer-events: none;
+  }
+  .bowl-wrap::before {
+    left: 4px;
+    background: linear-gradient(90deg, rgba(59,37,9,0.25), transparent);
+  }
+  .bowl-wrap::after {
+    right: 4px;
+    background: linear-gradient(90deg, transparent, rgba(59,37,9,0.25));
+  }
+  #board {
+    display: block;
+    border: 4px solid #3b2509;
+    border-top: none;
+    background: #f0ebd8;
+    box-shadow: inset 0 0 22px rgba(0,0,0,0.18);
+    border-radius: 0 0 4px 4px;
+  }
+  .water-strip {
+    position: relative;
+    width: calc(100% + 24px);
+    margin-left: -12px;
+    margin-top: -4px;
+    height: 32px;
+    background:
+      linear-gradient(180deg, #6a3e18 0%, #4a2a10 50%, #2a1808 100%);
+    border: 4px solid #3b2509;
+    border-radius: 4px 4px 20px 20px;
+    box-shadow: 6px 6px 0 #3b2509, inset 0 3px 0 rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .waves {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 4px;
+    height: 10px;
+    display: flex;
+    justify-content: space-around;
+    pointer-events: none;
+  }
+  .waves span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 220, 180, 0.25);
+    animation: waveBob 1.6s infinite ease-in-out;
+  }
+  .waves span:nth-child(2n) { animation-delay: 0.2s; background: rgba(255, 220, 180, 0.18); }
+  .waves span:nth-child(3n) { animation-delay: 0.4s; background: rgba(255, 220, 180, 0.3); }
+  .waves span:nth-child(5n) { animation-delay: 0.6s; }
+  @keyframes waveBob {
+    0%,100% { transform: translateY(0) scaleX(1); opacity: 0.7; }
+    50% { transform: translateY(-4px) scaleX(1.15); opacity: 1; }
+  }
+  .drain {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px;
+    height: 10px;
+    background: radial-gradient(ellipse at center, #000 0%, #1a0a02 70%, transparent 100%);
+    border-radius: 50%;
+    animation: drainPulse 1.4s infinite ease-in-out;
+    box-shadow: 0 0 6px rgba(0,0,0,0.8);
+  }
+  @keyframes drainPulse {
+    0%,100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+    50% { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+  }
+
+  /* Dingleberry-blocked row flash */
+  .dingle-flash {
+    position: absolute;
+    left: 0;
+    pointer-events: none;
+    background: rgba(220, 30, 30, 0.55);
+    border-top: 2px solid #8a1a10;
+    border-bottom: 2px solid #8a1a10;
+    z-index: 4;
+    animation: dingleFlash 0.55s ease-out forwards;
+  }
+  @keyframes dingleFlash {
+    0%   { opacity: 0; }
+    30%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
 </style>
 </head>
 <body>
@@ -191,8 +496,27 @@
     <div class="card">≡ <span id="lines">0</span></div>
     <div class="card">🏆 <span id="high">0</span></div>
   </div>
+  <div id="stink-wrap">
+    <span>💨 STINK</span>
+    <div id="stink-bar-outer"><div id="stink-bar"></div></div>
+  </div>
   <div class="board-row">
-    <canvas id="board"></canvas>
+    <div id="board-holder">
+      <div id="toilet-frame">
+        <div class="cistern"><div class="flush-handle"></div></div>
+        <div class="bowl-wrap">
+          <canvas id="board"></canvas>
+        </div>
+        <div class="water-strip">
+          <div class="waves">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span>
+          </div>
+          <div class="drain"></div>
+        </div>
+      </div>
+    </div>
     <div class="side-panel">
       <div class="next-box">
         <div class="label">NÆSTE</div>
@@ -245,13 +569,18 @@ let CELL = 28; // will be recomputed
 function resize() {
   // fit board to viewport
   const availW = Math.min(window.innerWidth - 120, 340);
-  const availH = window.innerHeight - 240;
+  const availH = window.innerHeight - 300;
   CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
   CELL = Math.max(16, Math.min(32, CELL));
   board.width = CELL * COLS;
   board.height = CELL * ROWS;
   board.style.width = (CELL * COLS) + 'px';
   board.style.height = (CELL * ROWS) + 'px';
+  // Size cistern + water to match the bowl width (canvas + bowl-wrap padding)
+  const frameEl = document.getElementById('toilet-frame');
+  if (frameEl) {
+    frameEl.style.width = (CELL * COLS + 28) + 'px'; // +28 for 14px bowl padding left+right
+  }
 }
 resize();
 window.addEventListener('resize', resize);
@@ -294,7 +623,7 @@ const PIECES = {
 };
 const PIECE_KEYS = Object.keys(PIECES);
 
-let grid, current, next, hold, holdUsed;
+let grid, goldGrid, dingleGrid, current, next, hold, holdUsed;
 let score = 0, lines = 0, level = 1;
 let highScore = parseInt(localStorage.getItem('tetris_highscore') || '0', 10);
 let running = false;
@@ -302,10 +631,156 @@ let dropTimer = 0, dropInterval = 800;
 let lastFrameT = 0;
 let animFlashRows = null, flashTimer = 0;
 
+// --- Twist state ---
+let stinkLevel = 0;
+let stinkTimer = 0; // ms since last line clear
+let tripleClearOrBetterAchieved = false;
+let goldenGlowPhase = 0;
+
+// Dingleberry state
+let dingleSpawnTimer = 0;   // ms accumulator; spawn attempt every ~1500ms
+let dingleDecayTimer = 0;   // ms accumulator; remove one per second when stink < 30
+const DINGLE_CAP = 12;
+const DINGLE_SPAWN_INTERVAL = 1500;
+const DINGLE_DECAY_INTERVAL = 1000;
+
+const stinkBarEl = document.getElementById('stink-bar');
+const boardHolder = document.getElementById('board-holder');
+const gameWrapperEl = document.getElementById('game-wrapper');
+
+function updateStinkBar() {
+  if (!stinkBarEl) return;
+  stinkBarEl.style.width = Math.max(0, Math.min(100, stinkLevel)) + '%';
+  if (stinkLevel > 75) stinkBarEl.classList.add('danger');
+  else stinkBarEl.classList.remove('danger');
+}
+
+function spawnFlushWipe() {
+  if (!boardHolder) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'flush-wrap';
+  const w = document.createElement('div');
+  w.className = 'flush-wipe';
+  wrap.appendChild(w);
+  boardHolder.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 450);
+}
+
+function spawnTetrisFlush() {
+  if (!boardHolder) return;
+  // text
+  const t = document.createElement('div');
+  t.className = 'tetris-text';
+  t.textContent = 'TETRIS-FLUSH!';
+  boardHolder.appendChild(t);
+  setTimeout(() => t.remove(), 1050);
+
+  // wave particles
+  const boardRect = boardHolder.getBoundingClientRect();
+  for (let i=0; i<14; i++) {
+    const em = document.createElement('div');
+    em.className = 'wave-particle';
+    em.textContent = '🌊';
+    em.style.left = (Math.random() * (boardRect.width - 24)) + 'px';
+    em.style.top = (-20 - Math.random()*40) + 'px';
+    em.style.animationDelay = (Math.random() * 0.3) + 's';
+    em.style.fontSize = (18 + Math.random()*14) + 'px';
+    boardHolder.appendChild(em);
+    setTimeout(() => em.remove(), 1600);
+  }
+  // screen shake on game wrapper
+  if (gameWrapperEl) {
+    gameWrapperEl.classList.remove('shaking');
+    void gameWrapperEl.offsetWidth;
+    gameWrapperEl.classList.add('shaking');
+    setTimeout(() => gameWrapperEl.classList.remove('shaking'), 320);
+  }
+}
+
+function popCoinToast() {
+  if (!boardHolder) return;
+  const c = document.createElement('div');
+  c.className = 'coin-pop';
+  c.textContent = '+1 🪙';
+  boardHolder.appendChild(c);
+  setTimeout(() => c.remove(), 1150);
+}
+
 document.getElementById('high').textContent = highScore;
 
 function emptyGrid() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+}
+
+function emptyGoldGrid() {
+  return Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+}
+
+function emptyDingleGrid() {
+  return Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+}
+
+function countDingleberries() {
+  if (!dingleGrid) return 0;
+  let n = 0;
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) if (dingleGrid[r][c]) n++;
+  return n;
+}
+
+function rowHasDingle(r) {
+  if (!dingleGrid) return false;
+  for (let c=0; c<COLS; c++) if (dingleGrid[r][c]) return true;
+  return false;
+}
+
+function trySpawnDingleberry() {
+  if (!dingleGrid || !grid) return;
+  if (countDingleberries() >= DINGLE_CAP) return;
+  // collect candidate cells: filled in grid, not already a dingle
+  const candidates = [];
+  for (let r=0; r<ROWS; r++) {
+    for (let c=0; c<COLS; c++) {
+      if (grid[r][c] && !dingleGrid[r][c]) candidates.push([r, c]);
+    }
+  }
+  if (candidates.length === 0) return;
+  // up to 2 new
+  const toAdd = Math.min(2, Math.max(1, Math.floor(Math.random() * 2) + 1));
+  for (let i=0; i<toAdd; i++) {
+    if (candidates.length === 0) break;
+    const idx = Math.floor(Math.random() * candidates.length);
+    const [r, c] = candidates.splice(idx, 1)[0];
+    dingleGrid[r][c] = true;
+    if (countDingleberries() >= DINGLE_CAP) break;
+  }
+}
+
+function decayOneDingleberry() {
+  if (!dingleGrid) return;
+  const cells = [];
+  for (let r=0; r<ROWS; r++) for (let c=0; c<COLS; c++) if (dingleGrid[r][c]) cells.push([r, c]);
+  if (cells.length === 0) return;
+  const [r, c] = cells[Math.floor(Math.random() * cells.length)];
+  dingleGrid[r][c] = false;
+}
+
+function spawnDingleRowFlash(rows) {
+  if (!boardHolder || !rows || rows.length === 0) return;
+  // Find pixel offset of board canvas inside boardHolder
+  const boardRect = board.getBoundingClientRect();
+  const holderRect = boardHolder.getBoundingClientRect();
+  const offsetTop = boardRect.top - holderRect.top;
+  const offsetLeft = boardRect.left - holderRect.left;
+  for (const r of rows) {
+    const flash = document.createElement('div');
+    flash.className = 'dingle-flash';
+    flash.style.top = (offsetTop + r * CELL) + 'px';
+    flash.style.left = offsetLeft + 'px';
+    flash.style.width = (CELL * COLS) + 'px';
+    flash.style.height = CELL + 'px';
+    boardHolder.appendChild(flash);
+    setTimeout(() => flash.remove(), 600);
+  }
 }
 
 function randomPiece() {
@@ -318,7 +793,8 @@ function randomPiece() {
     shapes: piece.shapes,
     rot: 0,
     x: Math.floor(COLS/2) - 2,
-    y: 0
+    y: 0,
+    golden: Math.random() < 0.05
   };
 }
 
@@ -347,35 +823,99 @@ function lock(p) {
         running = false;
         return gameOver();
       }
-      grid[gy][gx] = { color: p.color, emoji: p.emoji };
+      grid[gy][gx] = { color: p.color, emoji: p.emoji, golden: !!p.golden };
+      if (goldGrid) goldGrid[gy][gx] = !!p.golden;
     }
+  }
+  // Stink fills on each settling piece
+  stinkLevel = Math.min(100, stinkLevel + 1.5);
+  updateStinkBar();
+  // Per-piece differentiated plop sound based on piece key
+  if (window.LS) {
+    let baseSound = 'click';
+    if (p.key === 'I' || p.key === 'O') baseSound = 'splat';
+    else if (p.key === 'S' || p.key === 'Z') baseSound = 'fart';
+    // T, L, J -> click (default)
+    LS.sfx.play(baseSound);
+    if (p.golden) LS.sfx.play('coin');
   }
   clearLines();
   spawnNext();
 }
 
 function clearLines() {
-  const full = [];
+  const fullAll = [];
   for (let r=0; r<ROWS; r++) {
-    if (grid[r].every(cell => cell)) full.push(r);
+    if (grid[r].every(cell => cell)) fullAll.push(r);
   }
+  if (fullAll.length === 0) return;
+  // Dingleberry-blocked rows do not clear; flash them red instead
+  const blocked = fullAll.filter(r => rowHasDingle(r));
+  const full = fullAll.filter(r => !rowHasDingle(r));
+  if (blocked.length > 0) spawnDingleRowFlash(blocked);
   if (full.length === 0) return;
   animFlashRows = full;
   flashTimer = 18;
+
+  // Detect golden cells in clearing rows -> coin reward
+  let goldenHit = false;
+  for (const r of full) {
+    for (let c=0; c<COLS; c++) {
+      if (goldGrid && goldGrid[r][c]) { goldenHit = true; break; }
+    }
+    if (goldenHit) break;
+  }
+  if (goldenHit && window.LS) {
+    LS.addCoins(1, { silent: false, gameKey: 'tetris', reason: 'golden' });
+    popCoinToast();
+  }
+
+  // Sound + visual flush wipe
+  const isMega = full.length >= 4;
+  if (window.LS) LS.sfx.play(isMega ? 'megaflush' : 'flush');
+  spawnFlushWipe();
+
+  if (full.length >= 3) tripleClearOrBetterAchieved = true;
+
+  // Drain stink-meter
+  if (isMega) {
+    stinkLevel = 0;
+    spawnTetrisFlush();
+  } else {
+    stinkLevel = Math.max(0, stinkLevel - 8);
+  }
+  // Extra drain per line beyond 1 (mini-reward)
+  if (full.length > 1 && !isMega) {
+    stinkLevel = Math.max(0, stinkLevel - (full.length - 1) * 4);
+  }
+  updateStinkBar();
+
   setTimeout(() => {
     for (const r of full) {
       grid.splice(r, 1);
       grid.unshift(Array(COLS).fill(null));
+      if (goldGrid) {
+        goldGrid.splice(r, 1);
+        goldGrid.unshift(Array(COLS).fill(false));
+      }
+      if (dingleGrid) {
+        dingleGrid.splice(r, 1);
+        dingleGrid.unshift(Array(COLS).fill(false));
+      }
     }
     animFlashRows = null;
     const pts = [0, 100, 300, 500, 800][full.length] * level;
     score += pts;
     lines += full.length;
+    const prevLevel = level;
     level = 1 + Math.floor(lines / 10);
     dropInterval = Math.max(90, 800 - (level-1)*65);
     document.getElementById('score').textContent = score;
     document.getElementById('lines').textContent = lines;
     document.getElementById('level').textContent = level;
+    if (level > prevLevel && window.LS) LS.sfx.play('levelup');
+    // reset stink inactivity timer after line clear
+    stinkTimer = 0;
   }, 280);
 }
 
@@ -432,6 +972,7 @@ function hardDrop() {
   }
   score += d * 2;
   document.getElementById('score').textContent = score;
+  if (window.LS) LS.sfx.play('zap');
   lock(current);
 }
 
@@ -460,6 +1001,19 @@ function drawCell(ctx, x, y, cell, size=CELL, alpha=1) {
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.fillRect(x, y+size-3, size, 3);
   ctx.fillRect(x+size-3, y, 3, size);
+  // Golden overlay
+  if (cell.golden) {
+    const pulse = 0.35 + 0.2 * Math.sin(goldenGlowPhase);
+    ctx.save();
+    ctx.shadowColor = 'rgba(255,210,63,0.9)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'rgba(255,210,63,0.5)';
+    ctx.fillRect(x, y, size, size);
+    ctx.strokeStyle = 'rgba(255,235,120,' + (0.5 + pulse*0.4) + ')';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x+1, y+1, size-2, size-2);
+    ctx.restore();
+  }
   // emoji
   if (size >= 18) {
     ctx.font = (size*0.75) + 'px serif';
@@ -514,6 +1068,31 @@ function draw() {
   }
   if (flashTimer > 0) flashTimer -= 1;
 
+  // Dingleberry dots (small black specks on top of settled cells)
+  if (dingleGrid) {
+    bctx.fillStyle = '#1a0a00';
+    for (let r=0; r<ROWS; r++) {
+      for (let c=0; c<COLS; c++) {
+        if (!dingleGrid[r][c] || !grid[r][c]) continue;
+        const baseX = c * CELL;
+        const baseY = r * CELL;
+        // Deterministic per-cell positions so dots don't jitter each frame
+        const seed = (r * 31 + c * 17) % 100;
+        const dotCount = 2 + (seed % 2); // 2 or 3 dots
+        for (let i=0; i<dotCount; i++) {
+          const a = (seed * 0.123 + i * 2.1) % (Math.PI * 2);
+          const radial = 0.18 + ((seed + i * 7) % 30) / 100; // 0.18 - 0.48
+          const dx = Math.cos(a) * CELL * radial;
+          const dy = Math.sin(a) * CELL * radial;
+          const rad = Math.max(2, Math.min(3, Math.round(CELL * 0.10)));
+          bctx.beginPath();
+          bctx.arc(baseX + CELL/2 + dx, baseY + CELL/2 + dy, rad, 0, Math.PI * 2);
+          bctx.fill();
+        }
+      }
+    }
+  }
+
   drawGhost();
 
   // Current piece
@@ -525,7 +1104,7 @@ function draw() {
         const x = (current.x + c) * CELL;
         const y = (current.y + r) * CELL;
         if (y + CELL > 0) {
-          drawCell(bctx, x, y, { color: current.color, emoji: current.emoji });
+          drawCell(bctx, x, y, { color: current.color, emoji: current.emoji, golden: !!current.golden });
         }
       }
     }
@@ -555,6 +1134,7 @@ function drawMini(ctx, p) {
 function tick(t) {
   const dt = t - lastFrameT;
   lastFrameT = t;
+  goldenGlowPhase += dt * 0.006;
   if (running) {
     dropTimer += dt;
     if (dropTimer > dropInterval) {
@@ -562,6 +1142,38 @@ function tick(t) {
       if (!move(0, 1)) {
         lock(current);
       }
+    }
+    // Stink passive fill after 15s of inactivity
+    stinkTimer += dt;
+    if (stinkTimer > 15000) {
+      stinkLevel = Math.min(100, stinkLevel + 0.3 * (dt / 1000));
+      updateStinkBar();
+    }
+    // Dingleberry spawn while stinky
+    if (stinkLevel > 50) {
+      dingleSpawnTimer += dt;
+      if (dingleSpawnTimer >= DINGLE_SPAWN_INTERVAL) {
+        dingleSpawnTimer = 0;
+        trySpawnDingleberry();
+      }
+    } else {
+      dingleSpawnTimer = 0;
+    }
+    // Dingleberry decay when stink is low
+    if (stinkLevel < 30) {
+      dingleDecayTimer += dt;
+      if (dingleDecayTimer >= DINGLE_DECAY_INTERVAL) {
+        dingleDecayTimer = 0;
+        decayOneDingleberry();
+      }
+    } else {
+      dingleDecayTimer = 0;
+    }
+    if (stinkLevel >= 100) {
+      stinkLevel = 100;
+      updateStinkBar();
+      running = false;
+      gameOver({ stinkDeath: true });
     }
   }
   draw();
@@ -618,11 +1230,22 @@ board.addEventListener('touchend', (e) => {
 
 function start() {
   grid = emptyGrid();
+  goldGrid = emptyGoldGrid();
+  dingleGrid = emptyDingleGrid();
+  dingleSpawnTimer = 0;
+  dingleDecayTimer = 0;
   score = 0; lines = 0; level = 1;
   dropInterval = 800; dropTimer = 0;
+  stinkLevel = 0;
+  stinkTimer = 0;
+  tripleClearOrBetterAchieved = false;
+  updateStinkBar();
   document.getElementById('score').textContent = 0;
   document.getElementById('lines').textContent = 0;
   document.getElementById('level').textContent = 1;
+  // Reset overlay text in case it was modified by stink death
+  const goTitle = document.querySelector('#game-over-overlay h1');
+  if (goTitle) goTitle.innerHTML = 'TOILETTET<br>ER STOPPET!';
   next = randomPiece();
   hold = null;
   holdUsed = false;
@@ -633,17 +1256,46 @@ function start() {
   document.getElementById('new-best-badge').classList.add('hidden');
 }
 
-function gameOver() {
+function gameOver(opts) {
   running = false;
+  if (window.LS) LS.sfx.play('gameover');
   document.getElementById('final-score').textContent = score;
   document.getElementById('final-level').textContent = level;
-  let isNew = false;
-  if (score > highScore) {
-    highScore = score;
-    document.getElementById('high').textContent = highScore;
-    localStorage.setItem('tetris_highscore', highScore);
-    isNew = score > 0;
+
+  // Alternate game over title for stink death
+  const goTitle = document.querySelector('#game-over-overlay h1');
+  if (opts && opts.stinkDeath && goTitle) {
+    goTitle.innerHTML = 'DET LUGTER<br>FOR MEGET!';
+  } else if (goTitle) {
+    goTitle.innerHTML = 'TOILETTET<br>ER STOPPET!';
   }
+
+  let isNew = false;
+  const result = window.LS ? LS.reportGameEnd({
+    gameKey: 'tetris',
+    score,
+    extra: { tripleClear: tripleClearOrBetterAchieved }
+  }) : null;
+
+  if (result) {
+    isNew = !!result.isNewHigh;
+    if (result.isNewHigh) {
+      highScore = score;
+      document.getElementById('high').textContent = highScore;
+    }
+    if (result.dailyCompleted) {
+      LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus||0) + ' 🪙', { duration: 2800 });
+    }
+  } else {
+    // Fallback: keep old behavior
+    if (score > highScore) {
+      highScore = score;
+      document.getElementById('high').textContent = highScore;
+      localStorage.setItem('tetris_highscore', highScore);
+      isNew = score > 0;
+    }
+  }
+
   setTimeout(() => {
     if (isNew) document.getElementById('new-best-badge').classList.remove('hidden');
     document.getElementById('game-over-overlay').classList.remove('hidden');
@@ -655,7 +1307,18 @@ document.getElementById('restart-btn').onclick = start;
 
 // Preview placeholder
 grid = emptyGrid();
+goldGrid = emptyGoldGrid();
+dingleGrid = emptyDingleGrid();
 draw();
+updateStinkBar();
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
+// Also call after defer script load in case DOMContentLoaded already fired
+window.addEventListener('load', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
 </script>
 </body>
 </html>

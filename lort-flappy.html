@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Lort-Flappy</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #ffb6a3; }
@@ -141,6 +143,45 @@
     0% { transform: translate(-50%,-50%) scale(1); }
     100% { transform: translate(-50%,-50%) scale(1.06); }
   }
+  #boost-indicator {
+    position: absolute;
+    top: max(54px, calc(env(safe-area-inset-top) + 54px));
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 10px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 14px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    z-index: 10;
+    transition: transform 0.15s;
+  }
+  #boost-indicator.empty { opacity: 0.5; }
+  #boost-indicator.pulse { animation: boostPulse 0.6s infinite alternate; }
+  @keyframes boostPulse {
+    from { transform: scale(1); }
+    to   { transform: scale(1.1); background: #ffd23f; }
+  }
+  #boost-hint {
+    position: absolute;
+    top: max(54px, calc(env(safe-area-inset-top) + 54px));
+    right: 10px;
+    transform: translateY(38px);
+    background: rgba(255,249,230,0.9);
+    border: 2px solid #3b2509;
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 11px;
+    color: #3b2509;
+    z-index: 10;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -151,6 +192,8 @@
     <div class="score-card">💩 <span id="score">0</span></div>
     <div class="score-card">🏆 <span id="high">0</span></div>
   </div>
+  <div id="boost-indicator" class="empty hidden">💨 <span id="boost-count">0</span></div>
+  <div id="boost-hint" class="hidden">B / dobbelt-tap</div>
   <div class="big-score hidden" id="big-score">0</div>
   <div class="tap-hint hidden" id="tap-hint">TAP for at FLYVE!<br><span style="font-size:14px;font-family:Fredoka,sans-serif;font-weight:500;">Undvig rørene</span></div>
 
@@ -187,10 +230,12 @@ window.addEventListener('resize', resize);
 
 // Game state
 let player = { x: 0, y: 0, vy: 0, size: 48, rot: 0 };
+const basePlayerSize = 48;
 let pipes = []; // { x, gapY, gapH, scored, paper? }
 let clouds = [];
 let particles = [];
 let paperItems = []; // collectible toilet papers
+let boostItems = []; // collectible fart boosts {x,y}
 let score = 0;
 let papers = 0;
 let running = false;
@@ -200,6 +245,34 @@ let PIPE_W = 70;
 let GAP_H = 180;
 let highScore = parseInt(localStorage.getItem('flappy_highscore') || '0', 10);
 document.getElementById('high').textContent = highScore;
+
+// --- Twist state ---
+let fartBoosts = 0;
+let boostActive = false;
+let boostTimer = 0;     // ms remaining
+let lastBoostSpawn = 0; // performance.now()-based
+let gameStartT = 0;
+let lastSpaceTap = 0;
+let touchStartT = 0;
+let lastTouchTap = 0;
+const boostIndicator = document.getElementById('boost-indicator');
+const boostCountEl = document.getElementById('boost-count');
+const boostHint = document.getElementById('boost-hint');
+
+function updateBoostUI() {
+  if (!boostIndicator) return;
+  boostCountEl.textContent = fartBoosts;
+  if (fartBoosts > 0) {
+    boostIndicator.classList.remove('hidden');
+    boostIndicator.classList.remove('empty');
+    if (boostHint) boostHint.classList.remove('hidden');
+  } else {
+    boostIndicator.classList.add('empty');
+    if (boostHint) boostHint.classList.add('hidden');
+  }
+  if (boostActive) boostIndicator.classList.add('pulse');
+  else boostIndicator.classList.remove('pulse');
+}
 
 const scoreEl = document.getElementById('score');
 const highEl = document.getElementById('high');
@@ -282,6 +355,22 @@ function draw() {
     ctx.restore();
   }
 
+  // Fart-boost power-ups
+  for (const b of boostItems) {
+    ctx.save();
+    const bob = Math.sin(performance.now()/180 + b.x*0.02) * 6;
+    const scale = 1 + Math.sin(performance.now()/140) * 0.08;
+    ctx.translate(b.x, b.y + bob);
+    ctx.scale(scale, scale);
+    ctx.font = '38px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#a8e06a';
+    ctx.shadowBlur = 18;
+    ctx.fillText('💨', 0, 0);
+    ctx.restore();
+  }
+
   // Particles
   for (const p of particles) {
     ctx.globalAlpha = Math.max(0, p.life/30);
@@ -294,13 +383,19 @@ function draw() {
   ctx.save();
   ctx.translate(player.x, player.y);
   ctx.rotate(player.rot);
-  ctx.font = player.size + 'px serif';
+  const drawSize = boostActive ? player.size * 0.6 : player.size;
+  ctx.font = drawSize + 'px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.4)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 3;
+  if (boostActive) {
+    ctx.shadowColor = '#a8e06a';
+    ctx.shadowBlur = 20;
+  } else {
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 3;
+  }
   ctx.fillText('💩', 0, 0);
   ctx.restore();
 
@@ -318,53 +413,85 @@ function draw() {
 }
 
 function drawPipe(x, y, w, h, isTop) {
-  // pipe body - looks like toilet
-  ctx.fillStyle = '#b8b0a0';
+  if (h <= 0) return;
+  // Body: vertical gradient (porcelain)
+  const bodyGrad = ctx.createLinearGradient(x, y, x, y + h);
+  bodyGrad.addColorStop(0, '#fff8f0');
+  bodyGrad.addColorStop(0.5, '#c8bfb4');
+  bodyGrad.addColorStop(1, '#9a8e82');
+  ctx.fillStyle = bodyGrad;
   ctx.fillRect(x, y, w, h);
-  // outline
+
+  // Left-edge highlight (cylindrical look)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  const hlGrad = ctx.createLinearGradient(x, 0, x + 14, 0);
+  hlGrad.addColorStop(0, 'rgba(255,255,255,0.55)');
+  hlGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hlGrad;
+  ctx.fillRect(x, y, 14, h);
+
+  // Right-edge shadow
+  const shGrad = ctx.createLinearGradient(x + w - 10, 0, x + w, 0);
+  shGrad.addColorStop(0, 'rgba(60,36,18,0)');
+  shGrad.addColorStop(1, 'rgba(60,36,18,0.35)');
+  ctx.fillStyle = shGrad;
+  ctx.fillRect(x + w - 10, y, 10, h);
+  ctx.restore();
+
+  // Body outline
   ctx.strokeStyle = '#3b2509';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3;
   ctx.strokeRect(x, y, w, h);
-  // tile lines
-  ctx.strokeStyle = 'rgba(59,37,9,0.3)';
-  ctx.lineWidth = 2;
-  for (let i=1; i<w/14; i++) {
+
+  // Very subtle horizontal seam lines for porcelain panels
+  ctx.strokeStyle = 'rgba(59,37,9,0.12)';
+  ctx.lineWidth = 1;
+  for (let j=1; j<h/34; j++) {
     ctx.beginPath();
-    ctx.moveTo(x + i*14, y);
-    ctx.lineTo(x + i*14, y+h);
+    ctx.moveTo(x + 2, y + j*34);
+    ctx.lineTo(x + w - 2, y + j*34);
     ctx.stroke();
   }
-  for (let j=1; j<h/20; j++) {
-    ctx.beginPath();
-    ctx.moveTo(x, y + j*20);
-    ctx.lineTo(x + w, y + j*20);
-    ctx.stroke();
-  }
-  // rim (end cap)
-  if (isTop) {
-    ctx.fillStyle = '#c8c0b0';
-    ctx.fillRect(x-6, y + h - 22, w + 12, 22);
-    ctx.strokeStyle = '#3b2509';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(x-6, y + h - 22, w + 12, 22);
-    // toilet paper emoji in the middle
-    ctx.font = '24px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff9e6';
-    ctx.fillText('🧻', x + w/2, y + h - 11);
-  } else {
-    ctx.fillStyle = '#c8c0b0';
-    ctx.fillRect(x-6, y, w + 12, 22);
-    ctx.strokeStyle = '#3b2509';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(x-6, y, w + 12, 22);
-    ctx.font = '24px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff9e6';
-    ctx.fillText('🧻', x + w/2, y + 11);
-  }
+
+  // Rim (cap) — 22px tall, slightly wider
+  const capH = 22;
+  const capX = x - 4;
+  const capW = w + 8;
+  const capY = isTop ? (y + h - capH) : y;
+
+  const capGrad = ctx.createLinearGradient(capX, capY, capX, capY + capH);
+  capGrad.addColorStop(0, '#ffffff');
+  capGrad.addColorStop(0.5, '#e5dcd0');
+  capGrad.addColorStop(1, '#b8afa2');
+  ctx.fillStyle = capGrad;
+  ctx.fillRect(capX, capY, capW, capH);
+
+  // Cap left highlight
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(capX, capY, capW, capH);
+  ctx.clip();
+  const capHl = ctx.createLinearGradient(capX, 0, capX + 10, 0);
+  capHl.addColorStop(0, 'rgba(255,255,255,0.7)');
+  capHl.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = capHl;
+  ctx.fillRect(capX, capY, 10, capH);
+  ctx.restore();
+
+  // Cap outline (darker)
+  ctx.strokeStyle = '#2a1a05';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(capX, capY, capW, capH);
+
+  // Toilet paper emoji in cap center
+  ctx.font = '20px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#3b2509';
+  ctx.fillText('🧻', capX + capW/2, capY + capH/2);
 }
 
 function spawnPipe() {
@@ -403,10 +530,41 @@ function flap() {
   if (waitingToStart) {
     running = true;
     waitingToStart = false;
+    gameStartT = performance.now();
+    lastBoostSpawn = gameStartT;
     tapHint.classList.add('hidden');
   }
   player.vy = -9;
   player.rot = -0.4;
+  if (window.LS) LS.sfx.play('jump');
+}
+
+function activateBoost() {
+  if (!running) return;
+  if (fartBoosts <= 0 || boostActive) return;
+  fartBoosts--;
+  boostActive = true;
+  boostTimer = 1500;
+  // zoom forward instantly (x advance over ~300ms handled in update)
+  player.vy = 0;
+  // spawn brown clouds behind
+  for (let i=0; i<22; i++) {
+    particles.push({
+      x: player.x - 10 - Math.random()*20,
+      y: player.y + (Math.random()-0.5)*player.size*0.6,
+      vx: -3 - Math.random()*4,
+      vy: (Math.random()-0.5)*2,
+      life: 40 + Math.random()*15,
+      size: 4 + Math.random()*5,
+      color: ['#6b4423','#8b5a3b','#a57a4d','#6e4520'][Math.floor(Math.random()*4)]
+    });
+  }
+  if (window.LS) {
+    LS.sfx.play('boost');
+    LS.sfx.play('fart');
+  }
+  if (window.LS) LS.toast('💨 FART-BOOST AKTIVERET!', { duration: 900 });
+  updateBoostUI();
 }
 
 function update(dt) {
@@ -416,18 +574,47 @@ function update(dt) {
   }
   if (!running) return;
 
-  // Gravity
-  player.vy += 0.55 * dt;
-  player.vy = Math.min(player.vy, 14);
+  // Boost timer handling
+  const msDt = dt * 16;
+  if (boostActive) {
+    boostTimer -= msDt;
+    // Trail particles while active
+    if (Math.random() < 0.7) {
+      particles.push({
+        x: player.x - 12,
+        y: player.y + (Math.random()-0.5)*player.size*0.5,
+        vx: -4 - Math.random()*3,
+        vy: (Math.random()-0.5)*2,
+        life: 25 + Math.random()*10,
+        size: 3 + Math.random()*4,
+        color: ['#6b4423','#8b5a3b','#a57a4d'][Math.floor(Math.random()*3)]
+      });
+    }
+    if (boostTimer <= 0) {
+      boostActive = false;
+      updateBoostUI();
+    }
+  }
+
+  // Gravity (suspended during boost)
+  if (boostActive) {
+    player.vy = 0;
+  } else {
+    player.vy += 0.55 * dt;
+    player.vy = Math.min(player.vy, 14);
+  }
   player.y += player.vy * dt;
   player.rot = Math.max(-0.5, Math.min(1.3, player.vy * 0.08));
 
   // Move pipes
-  const scrollSpeed = 3.5 + Math.min(2.5, score * 0.03);
+  let scrollSpeed = 3.5 + Math.min(2.5, score * 0.03);
+  if (boostActive) scrollSpeed += (200 / (1500/16)) * 4; // aggressive forward motion
   for (const p of pipes) p.x -= scrollSpeed * dt;
   for (const pp of paperItems) pp.x -= scrollSpeed * dt;
+  for (const b of boostItems) b.x -= scrollSpeed * dt;
   pipes = pipes.filter(p => p.x + PIPE_W > -20);
   paperItems = paperItems.filter(pp => pp.x > -40);
+  boostItems = boostItems.filter(b => b.x > -40);
 
   // Spawn pipes
   if (pipes.length === 0 || W - pipes[pipes.length-1].x > 220) {
@@ -436,31 +623,49 @@ function update(dt) {
     }
   }
 
-  // Check ground
-  const groundY = H - 60;
-  if (player.y > groundY - player.size/2) {
-    player.y = groundY - player.size/2;
-    return gameOver();
+  // Spawn boost power-ups every ~20s
+  if (performance.now() - lastBoostSpawn > 20000) {
+    lastBoostSpawn = performance.now();
+    // place between latest pipe and next
+    const spawnX = W + 120;
+    const spawnY = 120 + Math.random() * (H - 300);
+    boostItems.push({ x: spawnX, y: spawnY });
   }
-  if (player.y < 0) {
-    player.y = 0;
-    player.vy = 0;
+
+  // Check ground (ignore during boost)
+  const groundY = H - 60;
+  const renderSize = boostActive ? player.size * 0.6 : player.size;
+  const pr = renderSize * 0.35;
+  if (!boostActive) {
+    if (player.y > groundY - player.size/2) {
+      player.y = groundY - player.size/2;
+      return gameOver();
+    }
+    if (player.y < 0) {
+      player.y = 0;
+      player.vy = 0;
+    }
+  } else {
+    // keep player within vertical bounds during boost
+    if (player.y < 20) player.y = 20;
+    if (player.y > groundY - 20) player.y = groundY - 20;
   }
 
   // Check pipes
-  const pr = player.size * 0.35;
   for (const p of pipes) {
-    if (player.x + pr > p.x && player.x - pr < p.x + PIPE_W) {
+    if (!boostActive && player.x + pr > p.x && player.x - pr < p.x + PIPE_W) {
       if (player.y - pr < p.gapY || player.y + pr > p.gapY + p.gapH) {
         return gameOver();
       }
     }
     if (!p.scored && p.x + PIPE_W < player.x) {
       p.scored = true;
-      score++;
+      const pointsPerPipe = Math.max(1, Math.floor(player.size / basePlayerSize));
+      score += pointsPerPipe;
       scoreEl.textContent = score;
       bigScore.textContent = score;
       addParticles(player.x, player.y, '#ffd23f', 8);
+      if (window.LS) LS.sfx.play('click');
     }
   }
 
@@ -468,13 +673,32 @@ function update(dt) {
   for (let i = paperItems.length-1; i >= 0; i--) {
     const pp = paperItems[i];
     const dx = pp.x - player.x, dy = pp.y - player.y;
-    if (dx*dx + dy*dy < 900) {
+    if (dx*dx + dy*dy < Math.max(900, (pr+18)*(pr+18))) {
       paperItems.splice(i, 1);
       papers++;
       score++; // bonus
+      // Grow the poop! (caps at 2x base)
+      player.size = basePlayerSize + Math.min(papers * 2, basePlayerSize);
       scoreEl.textContent = score;
       bigScore.textContent = score;
       addParticles(pp.x, pp.y, '#fff9e6', 12);
+      if (window.LS) LS.sfx.play('coin');
+    }
+  }
+
+  // Check boost items
+  for (let i = boostItems.length-1; i >= 0; i--) {
+    const b = boostItems[i];
+    const dx = b.x - player.x, dy = b.y - player.y;
+    if (dx*dx + dy*dy < Math.max(1100, (pr+22)*(pr+22))) {
+      boostItems.splice(i, 1);
+      fartBoosts++;
+      updateBoostUI();
+      addParticles(b.x, b.y, '#a8e06a', 16);
+      if (window.LS) {
+        LS.sfx.play('powerup');
+        LS.toast('💨 FART-BOOST!', { duration: 900 });
+      }
     }
   }
 
@@ -506,17 +730,66 @@ function inputFlap(e) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); inputFlap(); }
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    const now = performance.now();
+    // Space double-tap (within 300ms) = boost if available
+    if (e.code === 'Space' && running && fartBoosts > 0 && now - lastSpaceTap < 300) {
+      activateBoost();
+      lastSpaceTap = 0;
+      return;
+    }
+    if (e.code === 'Space') lastSpaceTap = now;
+    inputFlap();
+  } else if (e.code === 'KeyB') {
+    e.preventDefault();
+    activateBoost();
+  }
 });
 canvas.addEventListener('mousedown', (e) => inputFlap(e));
-canvas.addEventListener('touchstart', (e) => inputFlap(e), { passive: false });
+
+// Touch: support long-press (>400ms) and double-tap for boost
+let longPressTimer = null;
+canvas.addEventListener('touchstart', (e) => {
+  const now = performance.now();
+  // Double-tap within 300ms -> boost
+  if (running && fartBoosts > 0 && now - lastTouchTap < 300) {
+    e.preventDefault();
+    activateBoost();
+    lastTouchTap = 0;
+    return;
+  }
+  lastTouchTap = now;
+  touchStartT = now;
+  // Schedule long-press activation
+  if (longPressTimer) clearTimeout(longPressTimer);
+  longPressTimer = setTimeout(() => {
+    if (running && fartBoosts > 0 && !boostActive) {
+      activateBoost();
+      longPressTimer = null;
+    }
+  }, 400);
+  inputFlap(e);
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+});
+canvas.addEventListener('touchcancel', () => {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+});
 
 function prepare() {
   pipes = [];
   paperItems = [];
+  boostItems = [];
   particles = [];
   score = 0;
   papers = 0;
+  fartBoosts = 0;
+  boostActive = false;
+  boostTimer = 0;
+  lastBoostSpawn = performance.now();
+  player.size = basePlayerSize;
   scoreEl.textContent = 0;
   bigScore.textContent = 0;
   player.x = Math.min(120, W * 0.25);
@@ -525,6 +798,7 @@ function prepare() {
   player.rot = 0;
   waitingToStart = true;
   running = false;
+  updateBoostUI();
   document.body.classList.add('playing');
   startOverlay.classList.add('hidden');
   gameOverOverlay.classList.add('hidden');
@@ -536,19 +810,45 @@ function prepare() {
 function gameOver() {
   running = false;
   waitingToStart = false;
+  boostActive = false;
   addParticles(player.x, player.y, '#ff4e6b', 25);
   document.body.classList.remove('playing');
   finalEl.textContent = score;
-  let isNew = false;
-  if (score > highScore) {
-    highScore = score;
-    highEl.textContent = highScore;
-    localStorage.setItem('flappy_highscore', highScore);
-    isNew = score > 0;
+  if (window.LS) {
+    LS.sfx.play('splat');
+    setTimeout(() => { if (window.LS) LS.sfx.play('gameover'); }, 260);
   }
+
+  let isNew = false;
+  const result = window.LS ? LS.reportGameEnd({
+    gameKey: 'flappy',
+    score,
+    extra: { score, papers }
+  }) : null;
+
+  if (result) {
+    isNew = !!result.isNewHigh;
+    if (result.isNewHigh) {
+      highScore = score;
+      highEl.textContent = highScore;
+    }
+    if (result.dailyCompleted) {
+      LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus||0) + ' 🪙', { duration: 2800 });
+    }
+  } else {
+    if (score > highScore) {
+      highScore = score;
+      highEl.textContent = highScore;
+      localStorage.setItem('flappy_highscore', highScore);
+      isNew = score > 0;
+    }
+  }
+
   bestEl.textContent = highScore;
   bigScore.classList.add('hidden');
   tapHint.classList.add('hidden');
+  if (boostIndicator) boostIndicator.classList.add('hidden');
+  if (boostHint) boostHint.classList.add('hidden');
   setTimeout(() => {
     if (isNew) newBest.classList.remove('hidden');
     gameOverOverlay.classList.remove('hidden');
@@ -561,6 +861,13 @@ document.getElementById('restart-btn').onclick = prepare;
 // initial player position
 player.x = Math.min(120, W * 0.25);
 player.y = H / 2;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
+window.addEventListener('load', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
 </script>
 </body>
 </html>

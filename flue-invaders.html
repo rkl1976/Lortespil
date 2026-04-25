@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Flue-Invaders</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #0a0220; }
@@ -199,6 +201,8 @@ let powerUps = []; // { x, y, kind }
 let wave = 1;
 let score = 0;
 let lives = 3;
+let enemiesKilled = 0;
+let livesLostThisRun = 0;
 let running = false;
 let weapon = 'normal'; // normal, triple, laser, shield
 let weaponTimer = 0;
@@ -424,6 +428,7 @@ function fire() {
     bullets.push({ x: player.x, y: player.y - 30, vy: -11, vx: 0 });
     fireCooldown = 16;
   }
+  if (window.LS && LS.sfx) { try { LS.sfx.play('zap'); } catch(e){} }
 }
 
 function update(dt) {
@@ -519,10 +524,12 @@ function update(dt) {
         e.hp--;
         addParticles(b.x, b.y, '#ffd23f', 6);
         if (!b.laser) bullets.splice(bi, 1);
+        if (window.LS && LS.sfx) { try { LS.sfx.play('collect'); } catch(ex){} }
         if (e.hp <= 0) {
           e.alive = false;
           e.alpha = 0.8;
           score += e.type.points;
+          enemiesKilled++;
           scoreEl.textContent = score;
           addParticles(e.x, e.y, '#ff4e6b', 15);
           // Drop power-up sometimes
@@ -573,8 +580,10 @@ function update(dt) {
         continue;
       }
       lives--;
+      livesLostThisRun++;
       updateLives();
       addParticles(player.x, player.y, '#ff4e6b', 20);
+      if (window.LS && LS.sfx) { try { LS.sfx.play('splat'); } catch(ex){} }
       if (lives <= 0) {
         gameOver();
         return;
@@ -655,6 +664,7 @@ canvas.addEventListener('click', (e) => { if (running) fire(); });
 
 function start() {
   wave = 1; score = 0; lives = 3;
+  enemiesKilled = 0; livesLostThisRun = 0;
   weapon = 'normal'; weaponTimer = 0;
   bullets = []; enemyBullets = []; particles = []; powerUps = [];
   player.x = W / 2;
@@ -673,14 +683,37 @@ function start() {
 function gameOver() {
   running = false;
   document.body.classList.remove('playing');
+  if (window.LS && LS.sfx) { try { LS.sfx.play('gameover'); } catch(e){} }
   finalEl.textContent = score;
   finalWaveEl.textContent = wave;
+  const result = window.LS ? (function(){
+    try {
+      return LS.reportGameEnd({
+        gameKey: 'invaders',
+        score,
+        extra: { kills: enemiesKilled || 0, livesLost: livesLostThisRun || 0 }
+      });
+    } catch(e) { return null; }
+  })() : null;
   let isNew = false;
-  if (score > highScore) {
-    highScore = score;
-    highEl.textContent = highScore;
-    localStorage.setItem('invaders_highscore', highScore);
-    isNew = score > 0;
+  if (result) {
+    isNew = !!result.isNewHigh;
+    const fresh = parseInt(localStorage.getItem('invaders_highscore') || '0', 10);
+    if (fresh > highScore) {
+      highScore = fresh;
+      highEl.textContent = highScore;
+    }
+    if (result.dailyCompleted && LS.toast) {
+      try { LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 }); } catch(e){}
+    }
+  } else {
+    // Fallback: original localStorage path
+    if (score > highScore) {
+      highScore = score;
+      highEl.textContent = highScore;
+      localStorage.setItem('invaders_highscore', highScore);
+      isNew = score > 0;
+    }
   }
   setTimeout(() => {
     if (isNew) newBest.classList.remove('hidden');
@@ -694,6 +727,16 @@ document.getElementById('restart-btn').onclick = start;
 // Init player
 player.y = H - 100;
 player.x = W / 2;
+
+// Mount mute button if LS is available (defer-loaded, so try a few triggers)
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) {
+    try { LS.mountMuteButton(); } catch(e) { /* ignore */ }
+  }
+});
+if (window.LS && LS.mountMuteButton) {
+  try { LS.mountMuteButton(); } catch(e) { /* ignore */ }
+}
 </script>
 </body>
 </html>

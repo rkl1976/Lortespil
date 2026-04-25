@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Kloak-Racer</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  #game.shake { animation: screenShake 0.2s ease-in-out; }
+  @keyframes screenShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-6px, 4px); }
+    40% { transform: translate(6px, -4px); }
+    60% { transform: translate(-4px, -3px); }
+    80% { transform: translate(4px, 3px); }
+  }
+</style>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #1a0a02; }
@@ -172,6 +184,7 @@ window.addEventListener('resize', resize);
 
 const GROUND_Y = () => H * 0.78;
 const CEILING_Y = () => H * 0.22;
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 
 // State
 let player = {
@@ -181,6 +194,8 @@ let player = {
 let obstacles = []; // { x, y, w, h, emoji, type }
 let collectibles = []; // { x, y, emoji }
 let particles = [];
+let enginePuffs = []; // { x, y, vx, vy, life, maxLife }
+let lastPuff = 0;
 let distance = 0, papers = 0;
 let running = false;
 let speed = 6;
@@ -208,10 +223,12 @@ function jump() {
     player.vy = -16;
     player.onGround = false;
     player.jumping = true;
+    if (window.LS && LS.sfx) LS.sfx.play('jump');
   } else if (player.vy > 0 && !player.doubleJumped) {
     // allow a small double-jump boost
     player.vy = -12;
     player.doubleJumped = true;
+    if (window.LS && LS.sfx) LS.sfx.play('jump');
   }
 }
 function startDuck() { if (running) player.ducking = true; }
@@ -370,7 +387,7 @@ function draw() {
   // Obstacles
   for (const o of obstacles) {
     ctx.save();
-    ctx.font = (o.wide ? 64 : 50) + 'px serif';
+    ctx.font = (o.wide ? 64 : 50) + 'px ' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0,0,0,0.5)';
@@ -383,7 +400,7 @@ function draw() {
       ctx.fillStyle = '#8b5a3b';
       ctx.fillRect(o.x - 4, o.y - 6, o.w + 8, 10);
     } else if (o.type === 'puddle') {
-      ctx.font = '64px serif';
+      ctx.font = '64px ' + EMOJI_FONT;
       ctx.fillText('💧', o.x + o.w/2, o.y + o.h/2);
       ctx.fillText('💩', o.x + o.w/2 - 20, o.y + o.h/2 + 2);
     } else {
@@ -395,7 +412,7 @@ function draw() {
   // Collectibles
   for (const c of collectibles) {
     ctx.save();
-    ctx.font = (c.bonus ? '44px' : '38px') + ' serif';
+    ctx.font = (c.bonus ? '44px ' : '38px ') + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = c.bonus ? 'rgba(255,210,63,0.9)' : 'rgba(0,0,0,0.4)';
@@ -413,32 +430,186 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // Player scooter
-  const size = player.ducking ? 42 : 64;
-  const yOffset = player.ducking ? 12 : 0;
-  ctx.save();
-  ctx.font = size + 'px serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 4;
-  const rot = player.onGround ? 0 : (player.vy * 0.02);
-  ctx.translate(player.x, player.y + yOffset);
-  ctx.rotate(rot);
-  // Draw the poop riding scooter
-  ctx.fillText('💩', 0, -size*0.4);
-  ctx.fillText('🛵', 0, size*0.1);
-  ctx.restore();
-
-  // Player shadow
-  if (player.onGround || player.y < GROUND_Y() - 40) {
-    const shadowScale = player.onGround ? 1 : Math.max(0.3, 1 - (GROUND_Y() - player.y) / 200);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  // Engine puffs (drawn behind the scooter)
+  for (const e of enginePuffs) {
+    const a = Math.max(0, e.life / e.maxLife);
+    ctx.fillStyle = 'rgba(90,60,35,' + (0.55 * a) + ')';
     ctx.beginPath();
-    ctx.ellipse(player.x, GROUND_Y() + 12, 30 * shadowScale, 6 * shadowScale, 0, 0, Math.PI*2);
+    ctx.arc(e.x, e.y, 4 + (1 - a) * 5, 0, Math.PI*2);
     ctx.fill();
   }
+  ctx.globalAlpha = 1;
+
+  // Player scooter (replaces old emoji-stacked render)
+  drawScooter(ctx, player, performance.now());
+}
+
+// ---- Scooter drawing (chassis + wheels + rider) ----
+function drawScooter(ctx, player, t) {
+  const size = player.ducking ? 42 : 64;
+  const yOffset = player.ducking ? 12 : 0;
+  const rot = player.onGround ? 0 : (player.vy * 0.02);
+
+  // Shadow under wheels (ground level, shrinks when airborne)
+  const airborne = !player.onGround;
+  const airHeight = airborne ? Math.max(0, (GROUND_Y() - player.y - player.size/2)) : 0;
+  const shadowScale = airborne ? Math.max(0.35, 1 - airHeight / 220) : 1;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(player.x, GROUND_Y() + 14, 38 * shadowScale, 7 * shadowScale, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // Speed lines behind the scooter
+  if (!player.onGround || speed > 8) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 5; i++) {
+      const ly = player.y + yOffset - 10 + i * 8;
+      const lx = player.x - 55 - (i * 6);
+      ctx.globalAlpha = 0.15 + Math.random() * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.lineTo(lx - 18 - Math.random()*8, ly);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.translate(player.x, player.y + yOffset);
+  ctx.rotate(rot);
+
+  // Ducking: squash scaleY
+  if (player.ducking) {
+    ctx.scale(1, 0.65);
+  }
+
+  // ---- Chassis floor panel ----
+  const chassisW = 70, chassisH = 18;
+  const chassisY = 10; // relative to player center
+  const chassisX = -chassisW / 2;
+  const grad = ctx.createLinearGradient(0, chassisY - chassisH/2, 0, chassisY + chassisH/2);
+  grad.addColorStop(0, '#e8c870');
+  grad.addColorStop(1, '#a8802a');
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = '#3b2509';
+  ctx.lineWidth = 2;
+  roundRect(ctx, chassisX, chassisY - chassisH/2, chassisW, chassisH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // ---- Exhaust pipe at rear ----
+  ctx.fillStyle = '#2a1808';
+  ctx.fillRect(chassisX - 5, chassisY - 3, 5, 12);
+  ctx.strokeStyle = '#3b2509';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(chassisX - 5, chassisY - 3, 5, 12);
+
+  // ---- Handlebar (front) ----
+  const barX = chassisX + chassisW - 6;
+  ctx.strokeStyle = '#3b2509';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  // vertical post
+  ctx.moveTo(barX, chassisY - chassisH/2);
+  ctx.lineTo(barX + 4, chassisY - 26);
+  ctx.stroke();
+  // horizontal bar
+  ctx.beginPath();
+  ctx.moveTo(barX - 4, chassisY - 26);
+  ctx.lineTo(barX + 14, chassisY - 26);
+  ctx.stroke();
+  // rearview mirror
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#3b2509';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(barX + 14, chassisY - 30, 3, 4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+
+  // ---- Wheels ----
+  const wheelR = 12;
+  const wheelY = chassisY + chassisH/2 + wheelR - 2;
+  const wheelFX = chassisX + chassisW - 12;
+  const wheelRX = chassisX + 12;
+  // wheel rotation from scrollX
+  const wheelRot = scrollX / wheelR;
+  // optional wobble at high speed
+  const wobble = (speed > 10) ? Math.sin(t / 60) * (Math.PI / 90) : 0;
+
+  drawWheel(ctx, wheelRX, wheelY, wheelR, wheelRot + wobble);
+  drawWheel(ctx, wheelFX, wheelY, wheelR, wheelRot - wobble);
+
+  // ---- Seat ----
+  ctx.fillStyle = '#3b2509';
+  roundRect(ctx, chassisX + 14, chassisY - 12, 22, 7, 3);
+  ctx.fill();
+
+  // ---- Rider: poop emoji + sunglasses overlay ----
+  const riderX = chassisX + 25;
+  const riderY = chassisY - 22;
+  let riderTilt = 0;
+  if (player.ducking) riderTilt = -10 * Math.PI / 180;
+  ctx.save();
+  ctx.translate(riderX, riderY);
+  ctx.rotate(riderTilt);
+  ctx.font = (size * 0.6) + 'px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💩', 0, 0);
+  // sunglasses overlay on top of the poop face
+  ctx.font = (size * 0.32) + 'px ' + EMOJI_FONT;
+  ctx.fillText('🕶️', 0, -size * 0.05);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawWheel(ctx, x, y, r, rot) {
+  // tire
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fill();
+  // yellow rim
+  ctx.strokeStyle = '#ffd23f';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, r - 2, 0, Math.PI*2);
+  ctx.stroke();
+  // hub
+  ctx.fillStyle = '#ffd23f';
+  ctx.beginPath();
+  ctx.arc(x, y, 2, 0, Math.PI*2);
+  ctx.fill();
+  // 4 spokes
+  ctx.strokeStyle = '#ffd23f';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 4; i++) {
+    const a = rot + i * (Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(a) * (r - 3), y + Math.sin(a) * (r - 3));
+    ctx.stroke();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
 function update(dt) {
@@ -487,6 +658,27 @@ function update(dt) {
   }
   particles = particles.filter(p => p.life > 0);
 
+  // Engine puffs: spawn every ~200ms when running; drift up+left, fade over ~600ms
+  const nowT = performance.now();
+  if (running && nowT - lastPuff > 200) {
+    lastPuff = nowT;
+    const rearX = player.x - 38;
+    const rearY = player.y + (player.ducking ? 12 : 0) + 8;
+    enginePuffs.push({
+      x: rearX, y: rearY,
+      vx: -0.8 - Math.random() * 0.5,
+      vy: -0.4 - Math.random() * 0.4,
+      life: 600, maxLife: 600
+    });
+  }
+  const frameMs = dt * 16;
+  for (const e of enginePuffs) {
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.life -= frameMs;
+  }
+  enginePuffs = enginePuffs.filter(e => e.life > 0);
+
   // Player hitbox
   const ph = player.ducking ? 30 : 62;
   const pw = 50;
@@ -500,6 +692,7 @@ function update(dt) {
       papers += c.bonus || 1;
       papersEl.textContent = papers;
       addParticle(c.x, c.y, c.bonus ? '#ff4e6b' : '#fff9e6');
+      if (window.LS && LS.sfx) LS.sfx.play('coin');
       collectibles.splice(i, 1);
     }
   }
@@ -512,6 +705,7 @@ function update(dt) {
       if (o.ceiling && player.ducking) continue;
       // Jumping saves from ground obstacles (if high enough)
       if (o.ground && !player.onGround && player.y < GROUND_Y() - o.h - 20) continue;
+      if (window.LS && LS.sfx) LS.sfx.play('splat');
       gameOver(o.emoji);
       return;
     }
@@ -533,7 +727,7 @@ function start() {
   player.x = Math.min(120, W * 0.18);
   player.y = GROUND_Y() - player.size/2;
   player.vy = 0; player.onGround = true;
-  obstacles = []; collectibles = []; particles = [];
+  obstacles = []; collectibles = []; particles = []; enginePuffs = [];
   distance = 0; papers = 0;
   papersEl.textContent = 0; distEl.textContent = 0;
   scrollX = 0;
@@ -541,21 +735,50 @@ function start() {
   gameOverOverlay.classList.add('hidden');
   newBest.classList.add('hidden');
   document.body.classList.add('playing');
+  if (window.LS && LS.sfx) LS.sfx.play('engine');
   setTimeout(() => { hint.style.opacity = 0; }, 3000);
 }
 
 function gameOver(emoji) {
   running = false;
+  // Screen shake on crash
+  const gameEl = document.getElementById('game');
+  if (gameEl) {
+    gameEl.classList.remove('shake');
+    // restart animation
+    void gameEl.offsetWidth;
+    gameEl.classList.add('shake');
+    setTimeout(() => gameEl.classList.remove('shake'), 220);
+  }
+  if (window.LS && LS.sfx) {
+    LS.sfx.stop('engine');
+    LS.sfx.play('gameover');
+  }
   goEmoji.textContent = emoji === '🕸️' ? '🕷️' : emoji === '💧' ? '💦' : '💥';
   finalEl.textContent = Math.floor(distance);
   finalPapers.textContent = papers;
   const totalScore = Math.floor(distance) + papers * 10;
   let isNew = false;
-  if (totalScore > highScore) {
-    highScore = totalScore;
+  const result = (window.LS && LS.reportGameEnd) ? LS.reportGameEnd({
+    gameKey: 'racer',
+    score: totalScore,
+    extra: { distance: Math.floor(distance), papers, crashedOn: emoji }
+  }) : null;
+  if (result) {
+    highScore = LS.getHigh('racer');
     highEl.textContent = highScore;
-    localStorage.setItem('racer_highscore', highScore);
-    isNew = totalScore > 0;
+    isNew = result.isNewHigh;
+    if (result.dailyCompleted && LS.toast) {
+      LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 });
+    }
+  } else {
+    // Fallback to original behavior if shared module missing
+    if (totalScore > highScore) {
+      highScore = totalScore;
+      highEl.textContent = highScore;
+      localStorage.setItem('racer_highscore', highScore);
+      isNew = totalScore > 0;
+    }
   }
   document.body.classList.remove('playing');
   setTimeout(() => {
@@ -566,6 +789,15 @@ function gameOver(emoji) {
 
 document.getElementById('start-btn').onclick = start;
 document.getElementById('restart-btn').onclick = start;
+
+// Mount mute button (shared module)
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
+// Also try immediately in case DOMContentLoaded already fired
+if (document.readyState !== 'loading' && window.LS && window.LS.mountMuteButton) {
+  window.LS.mountMuteButton();
+}
 
 // init player position
 player.y = GROUND_Y() - player.size/2;

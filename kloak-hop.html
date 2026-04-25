@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kloak-Hop</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  #game.shake { animation: hopShake 0.22s ease-in-out; }
+  @keyframes hopShake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-5px, 3px); }
+    50% { transform: translate(5px, -3px); }
+    75% { transform: translate(-3px, -3px); }
+  }
+  @keyframes popIn { from { transform: scale(0) rotate(-90deg); } to { transform: scale(1) rotate(0); } }
+  @keyframes spin { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+</style>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #0f2410; }
+  body { touch-action: none; position: fixed; width: 100%; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: -webkit-optimize-contrast; }
+
+  #hud {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 15px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.55), rgba(0,0,0,0.9));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+  .controls-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,249,230,0.9);
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #3b2509;
+    font-weight: 600;
+    z-index: 10;
+    text-align: center;
+    max-width: 92vw;
+    transition: opacity 0.4s;
+  }
+  .level-banner {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    border-radius: 18px;
+    padding: 16px 34px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 28px;
+    color: #3b2509;
+    box-shadow: 6px 6px 0 #3b2509;
+    z-index: 50;
+    animation: popIn 0.5s ease-out;
+    text-align: center;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="score-card">🏅 <span id="score">0</span></div>
+    <div class="score-card">🚽 <span id="toilets">0</span>/<span id="toilets-total">4</span></div>
+    <div class="score-card">📶 <span id="level">1</span></div>
+    <div class="score-card">🏆 <span id="high">0</span></div>
+  </div>
+  <div class="controls-hint" id="hint">⬆️⬇️⬅️➡️ / WASD · TAP kant af skærmen</div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>KLOAK<br>HOP</h1>
+    <p>💩 Hjælp lorten over vejen og floden!<br>Undgå 🚗🚚🛵 og hop på 🪵🦆 for at krydse kloak-vandet.<br>Ram alle 🚽 toiletter for at komme videre!<br><br>⬆️⬇️⬅️➡️ / WASD eller TAP kant af skærmen</p>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">💥</div>
+    <h1 id="go-title">SPLAT!</h1>
+    <p id="go-text">Du nåede <b>niveau <span id="final-level">1</span></b><br>og scorede <b><span id="final">0</span> point</b><br>Krydsninger: <b><span id="final-crossings">0</span></b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">PRØV IGEN</button>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W = window.innerWidth, H = window.innerHeight;
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    recomputeGrid();
+  }
+  const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+  // ---------- Grid setup ----------
+  // 11 wide x 13 tall. Row 0 = top (toilets), row 12 = bottom (start grass)
+  const COLS = 11, ROWS = 13;
+  let TILE = 40;
+  let gridW = 0, gridH = 0, gridX = 0, gridY = 0;
+
+  // Row layout (index 0 = top)
+  //  0: goal row (toilets)
+  //  1: safe grass (hedge just below goal)
+  //  2-5: river (4 rows)
+  //  6: middle safe (fliser)
+  //  7-10: road (4 lanes)
+  //  11: safe grass (below road)
+  //  12: start row (grass)
+  const ROW_TYPE = [
+    'goal',  // 0
+    'grass', // 1
+    'river', // 2
+    'river', // 3
+    'river', // 4
+    'river', // 5
+    'safe',  // 6 fliser
+    'road',  // 7
+    'road',  // 8
+    'road',  // 9
+    'road',  // 10
+    'grass', // 11
+    'start'  // 12
+  ];
+
+  function recomputeGrid() {
+    // Leave space for HUD at top (approx 60px) and touch margin at bottom
+    const marginTop = 70;
+    const marginBot = 30;
+    const avH = Math.max(100, H - marginTop - marginBot);
+    // Fit both w and h constraints
+    const tileByH = Math.floor(avH / ROWS);
+    const tileByW = Math.floor(W / COLS);
+    TILE = Math.max(24, Math.min(tileByH, tileByW, 80));
+    gridW = TILE * COLS;
+    gridH = TILE * ROWS;
+    gridX = Math.floor((W - gridW) / 2);
+    gridY = Math.floor(marginTop + (avH - gridH) / 2);
+    if (gridY < marginTop) gridY = marginTop;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ---------- Game state ----------
+  const state = {
+    running: false,
+    level: 1,
+    score: 0,
+    highScore: 0,
+    toiletsHit: 0,          // toilets reached in current level
+    toiletsTotalLevel: 0,   // total goal slots this level
+    goalSlots: [],          // [{col, done}]
+    player: {
+      col: 5, row: 12,
+      x: 0, y: 0,
+      px: 0, py: 0,        // display pos (tween)
+      hopT: 0,             // 0..1 during hop animation
+      facing: 'up',
+      onCarrier: null,     // reference to a river object
+      sinkingOn: null,     // a sinking lort object we're standing on
+      sinkT: 0
+    },
+    rowsMaxReached: 12,     // track furthest up reached for row advancement scoring
+    rowsScored: new Set(),  // rows we've already awarded +10 for
+    totalCrossings: 0,      // count of road+river rows successfully crossed (cumulative)
+    levelsCompleted: 0,
+    vehicles: [],           // road traffic
+    floaters: [],           // river floaters
+    lanes: [],              // per-row lane config
+    particles: [],
+    deathAnim: null,        // { kind, t }
+    levelBannerUntil: 0
+  };
+
+  // Persisted highscore
+  try {
+    if (window.LS && LS.getHigh) state.highScore = LS.getHigh('hop') || 0;
+    else state.highScore = parseInt(localStorage.getItem('hop_highscore') || '0', 10);
+  } catch (e) {}
+
+  // DOM refs
+  const scoreEl = document.getElementById('score');
+  const toiletsEl = document.getElementById('toilets');
+  const toiletsTotalEl = document.getElementById('toilets-total');
+  const levelEl = document.getElementById('level');
+  const highEl = document.getElementById('high');
+  const finalEl = document.getElementById('final');
+  const finalLevelEl = document.getElementById('final-level');
+  const finalCrossingsEl = document.getElementById('final-crossings');
+  const goEmoji = document.getElementById('go-emoji');
+  const goTitle = document.getElementById('go-title');
+  const startOverlay = document.getElementById('start-overlay');
+  const gameOverOverlay = document.getElementById('game-over-overlay');
+  const newBestEl = document.getElementById('new-best');
+  const hint = document.getElementById('hint');
+
+  highEl.textContent = state.highScore;
+
+  // ---------- Helpers ----------
+  function tileCenter(col, row) {
+    return { x: gridX + col * TILE + TILE/2, y: gridY + row * TILE + TILE/2 };
+  }
+  function tileLeft(col) { return gridX + col * TILE; }
+  function tileTop(row) { return gridY + row * TILE; }
+
+  function getToiletCount(level) {
+    // 4 toilets at level 1, 5 from level 3 onward (capped to fit 11 col grid)
+    return level >= 3 ? 5 : 4;
+  }
+
+  function spawnLevel(level) {
+    // Goal slots evenly distributed across top row
+    const n = getToiletCount(level);
+    state.toiletsTotalLevel = n;
+    state.toiletsHit = 0;
+    toiletsEl.textContent = 0;
+    toiletsTotalEl.textContent = n;
+    state.goalSlots = [];
+    // Space them out across COLS columns
+    for (let i = 0; i < n; i++) {
+      const col = Math.round(((i + 0.5) * (COLS / n)) - 0.5);
+      state.goalSlots.push({ col: Math.max(0, Math.min(COLS-1, col)), done: false });
+    }
+
+    // Build lanes per row. Each row gets dir (+1 or -1), speed (tiles/sec), spacing
+    state.lanes = [];
+    state.vehicles = [];
+    state.floaters = [];
+
+    const baseVehicleSpeed = 1.8 + (level - 1) * 0.35;  // tiles per second
+    const baseFloaterSpeed = 1.1 + (level - 1) * 0.22;
+
+    for (let r = 0; r < ROWS; r++) {
+      const type = ROW_TYPE[r];
+      if (type === 'road') {
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        const speed = (baseVehicleSpeed + Math.random() * 0.8) * dir;
+        const spacing = Math.max(2.6, 4.6 - (level - 1) * 0.3 + Math.random() * 0.7); // tiles
+        state.lanes[r] = { dir, speed, spacing };
+        // Pre-populate the road with vehicles staggered
+        const count = Math.ceil((COLS + 6) / spacing);
+        for (let i = 0; i < count; i++) {
+          const col = i * spacing + (Math.random() * 0.5) - 3;
+          const kind = pickVehicleKind();
+          state.vehicles.push({ row: r, col, kind, width: kind.width, dir });
+        }
+      } else if (type === 'river') {
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        const speed = (baseFloaterSpeed + Math.random() * 0.5) * dir;
+        // Choose a dominant floater type for this row
+        const roll = Math.random();
+        let kindPicker;
+        if (roll < 0.55) kindPicker = 'log';
+        else if (roll < 0.85) kindPicker = 'duck';
+        else kindPicker = 'sink';
+        state.lanes[r] = { dir, speed, spacing: 0, kindPicker };
+
+        const spacing = Math.max(2.4, 4.0 - (level - 1) * 0.2 + Math.random() * 0.6);
+        const count = Math.ceil((COLS + 6) / spacing);
+        for (let i = 0; i < count; i++) {
+          const col = i * spacing + (Math.random() * 0.5) - 3;
+          const kind = makeFloater(kindPicker);
+          state.floaters.push({ row: r, col, kind, width: kind.width, dir, sinkT: 0, occupied: false });
+        }
+      } else {
+        state.lanes[r] = null;
+      }
+    }
+  }
+
+  function pickVehicleKind() {
+    // { emoji, width (tiles), label }
+    const kinds = [
+      { emoji: '🚗', width: 1, label: 'car' },
+      { emoji: '🚙', width: 1, label: 'suv' },
+      { emoji: '🚕', width: 1, label: 'taxi' },
+      { emoji: '🛵', width: 1, label: 'moped' },
+      { emoji: '🚚', width: 2, label: 'truck' },
+      { emoji: '🚛', width: 2, label: 'semi' }
+    ];
+    return kinds[Math.floor(Math.random() * kinds.length)];
+  }
+
+  function makeFloater(hint) {
+    // 'log' wide safe, 'duck' small safe slow-ish, 'sink' sinks after 2s
+    if (hint === 'log') return { emoji: '🪵', width: 3, label: 'log' };
+    if (hint === 'duck') return { emoji: '🦆', width: 1, label: 'duck' };
+    if (hint === 'sink') return { emoji: '💩', width: 1, label: 'sink' };
+    return { emoji: '🪵', width: 3, label: 'log' };
+  }
+
+  // ---------- Input ----------
+  function move(dx, dy) {
+    if (!state.running) return;
+    if (state.deathAnim) return;
+    const p = state.player;
+    const nc = p.col + dx;
+    const nr = p.row + dy;
+    if (nc < 0 || nc > COLS - 1) return;
+    if (nr < 0 || nr > ROWS - 1) return;
+    // Start hop animation
+    p.col = nc;
+    p.row = nr;
+    p.hopT = 0;
+    p.facing = dy < 0 ? 'up' : dy > 0 ? 'down' : dx < 0 ? 'left' : 'right';
+    // Clear carrier while mid-hop
+    p.onCarrier = null;
+    p.sinkingOn = null;
+    p.sinkT = 0;
+    if (window.LS && LS.sfx) LS.sfx.play('jump');
+
+    // Score +10 per new row advanced upward
+    if (nr < state.rowsMaxReached && !state.rowsScored.has(nr)) {
+      state.rowsScored.add(nr);
+      state.rowsMaxReached = nr;
+      state.score += 10;
+      // If we crossed out of a road or river row into a new one, increment crossings counter
+      // Count crossings as entering a safe or goal row from road/river below
+      const fromType = ROW_TYPE[nr + 1];
+      if (fromType === 'road' || fromType === 'river') {
+        state.totalCrossings += 1;
+      }
+      scoreEl.textContent = state.score;
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (k === 'ArrowUp' || k === 'w' || k === 'W') { e.preventDefault(); move(0, -1); }
+    else if (k === 'ArrowDown' || k === 's' || k === 'S') { e.preventDefault(); move(0, 1); }
+    else if (k === 'ArrowLeft' || k === 'a' || k === 'A') { e.preventDefault(); move(-1, 0); }
+    else if (k === 'ArrowRight' || k === 'd' || k === 'D') { e.preventDefault(); move(1, 0); }
+  });
+
+  // Touch: directional based on which screen zone is tapped relative to player.
+  // Also supports swipe detection.
+  let tStart = null;
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    tStart = { x: t.clientX, y: t.clientY, time: performance.now() };
+  }, { passive: false });
+  canvas.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchend', (e) => {
+    if (!tStart) return;
+    const ch = e.changedTouches[0];
+    const dx = ch.clientX - tStart.x;
+    const dy = ch.clientY - tStart.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const dt = performance.now() - tStart.time;
+    tStart = null;
+    if (dist > 24) {
+      // Swipe
+      if (Math.abs(dx) > Math.abs(dy)) {
+        move(dx > 0 ? 1 : -1, 0);
+      } else {
+        move(0, dy > 0 ? 1 : -1);
+      }
+    } else if (dt < 600) {
+      // Tap: determine direction relative to player on-screen position
+      const pos = tileCenter(state.player.col, state.player.row);
+      const tx = ch.clientX - pos.x;
+      const ty = ch.clientY - pos.y;
+      if (Math.abs(tx) > Math.abs(ty)) move(tx > 0 ? 1 : -1, 0);
+      else move(0, ty > 0 ? 1 : -1);
+    }
+  });
+
+  // Mouse support as a dev aid
+  canvas.addEventListener('mousedown', (e) => {
+    const pos = tileCenter(state.player.col, state.player.row);
+    const tx = e.clientX - pos.x;
+    const ty = e.clientY - pos.y;
+    if (Math.abs(tx) > Math.abs(ty)) move(tx > 0 ? 1 : -1, 0);
+    else move(0, ty > 0 ? 1 : -1);
+  });
+
+  // ---------- Game Logic ----------
+  function startGame() {
+    state.running = true;
+    state.level = 1;
+    state.score = 0;
+    state.toiletsHit = 0;
+    state.rowsMaxReached = 12;
+    state.rowsScored = new Set();
+    state.totalCrossings = 0;
+    state.levelsCompleted = 0;
+    state.deathAnim = null;
+    state.particles = [];
+    resetPlayerToStart();
+    spawnLevel(state.level);
+    scoreEl.textContent = '0';
+    levelEl.textContent = '1';
+    startOverlay.classList.add('hidden');
+    gameOverOverlay.classList.add('hidden');
+    newBestEl.classList.add('hidden');
+    document.body.classList.add('playing');
+    showLevelBanner('NIVEAU 1');
+    if (hint) {
+      hint.style.opacity = 1;
+      setTimeout(() => { hint.style.opacity = 0; }, 4000);
+    }
+  }
+
+  function resetPlayerToStart() {
+    const p = state.player;
+    p.col = Math.floor(COLS / 2);
+    p.row = 12;
+    const c = tileCenter(p.col, p.row);
+    p.x = c.x; p.y = c.y; p.px = c.x; p.py = c.y;
+    p.hopT = 1;
+    p.facing = 'up';
+    p.onCarrier = null;
+    p.sinkingOn = null;
+    p.sinkT = 0;
+    state.rowsMaxReached = 12;
+    state.rowsScored = new Set();
+  }
+
+  function advanceLevel() {
+    state.levelsCompleted += 1;
+    state.level += 1;
+    state.score += 500;
+    scoreEl.textContent = state.score;
+    levelEl.textContent = state.level;
+    if (window.LS && LS.sfx) LS.sfx.play('levelup');
+    showLevelBanner('NIVEAU ' + state.level + '!');
+    resetPlayerToStart();
+    spawnLevel(state.level);
+  }
+
+  function showLevelBanner(text) {
+    let el = document.getElementById('level-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'level-banner';
+      el.className = 'level-banner';
+      document.getElementById('game').appendChild(el);
+    }
+    el.textContent = text;
+    el.style.display = 'block';
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = 'popIn 0.5s ease-out';
+    state.levelBannerUntil = performance.now() + 1400;
+  }
+
+  function hideLevelBanner() {
+    const el = document.getElementById('level-banner');
+    if (el) el.style.display = 'none';
+  }
+
+  function die(kind) {
+    if (state.deathAnim) return;
+    state.deathAnim = { kind, t: 0 };
+    // shake
+    const gameEl = document.getElementById('game');
+    if (gameEl) {
+      gameEl.classList.remove('shake');
+      void gameEl.offsetWidth;
+      gameEl.classList.add('shake');
+      setTimeout(() => gameEl.classList.remove('shake'), 240);
+    }
+    if (window.LS && LS.sfx) LS.sfx.play('splat');
+    // Spawn particles
+    const p = state.player;
+    for (let i = 0; i < 14; i++) {
+      state.particles.push({
+        x: p.x, y: p.y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: -Math.random() * 6 - 1,
+        life: 40,
+        color: kind === 'drown' ? '#6a3d1a' : '#b33'
+      });
+    }
+  }
+
+  function gameOver() {
+    state.running = false;
+    if (window.LS && LS.sfx) LS.sfx.play('gameover');
+    finalEl.textContent = state.score;
+    finalLevelEl.textContent = state.level;
+    finalCrossingsEl.textContent = state.totalCrossings;
+
+    // Death emoji
+    const kind = state.deathAnim ? state.deathAnim.kind : 'splat';
+    goEmoji.textContent = kind === 'drown' ? '🌊' : '💥';
+    goTitle.textContent = kind === 'drown' ? 'DRUKNET!' : 'SPLAT!';
+
+    let isNew = false;
+    const result = (window.LS && LS.reportGameEnd) ? LS.reportGameEnd({
+      gameKey: 'hop',
+      score: state.score,
+      extra: { crossings: state.totalCrossings, levels: state.levelsCompleted }
+    }) : null;
+    if (result) {
+      state.highScore = LS.getHigh('hop');
+      highEl.textContent = state.highScore;
+      isNew = result.isNewHigh;
+      if (result.dailyCompleted && LS.toast) {
+        LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 });
+      }
+    } else {
+      // Fallback
+      if (state.score > state.highScore) {
+        state.highScore = state.score;
+        try { localStorage.setItem('hop_highscore', String(state.highScore)); } catch (e) {}
+        highEl.textContent = state.highScore;
+        isNew = state.score > 0;
+      }
+    }
+
+    document.body.classList.remove('playing');
+    setTimeout(() => {
+      if (isNew) newBestEl.classList.remove('hidden');
+      gameOverOverlay.classList.remove('hidden');
+    }, 700);
+  }
+
+  function onToiletReached(slot) {
+    slot.done = true;
+    state.toiletsHit += 1;
+    state.score += 50;
+    scoreEl.textContent = state.score;
+    toiletsEl.textContent = state.toiletsHit;
+    if (window.LS && LS.sfx) { LS.sfx.play('flush'); LS.sfx.play('coin'); }
+    // Particles
+    const c = tileCenter(slot.col, 0);
+    for (let i = 0; i < 10; i++) {
+      state.particles.push({
+        x: c.x, y: c.y,
+        vx: (Math.random() - 0.5) * 6,
+        vy: -Math.random() * 5 - 2,
+        life: 32,
+        color: '#ffd23f'
+      });
+    }
+
+    if (state.toiletsHit >= state.toiletsTotalLevel) {
+      // level complete
+      setTimeout(() => { if (state.running) advanceLevel(); }, 600);
+    } else {
+      // send player back to start for next toilet
+      resetPlayerToStart();
+    }
+  }
+
+  // ---------- Update ----------
+  let lastT = 0;
+  function update(dtMs) {
+    if (!state.running) return;
+
+    const dt = dtMs / 1000; // seconds
+
+    // Hide level banner
+    if (state.levelBannerUntil && performance.now() > state.levelBannerUntil) {
+      hideLevelBanner();
+      state.levelBannerUntil = 0;
+    }
+
+    // Update vehicles
+    for (const v of state.vehicles) {
+      v.col += state.lanes[v.row].speed * dt;
+      // wrap
+      if (state.lanes[v.row].dir > 0 && v.col - v.width/2 > COLS + 2) v.col -= COLS + 4;
+      if (state.lanes[v.row].dir < 0 && v.col + v.width/2 < -2) v.col += COLS + 4;
+    }
+
+    // Update floaters
+    for (const f of state.floaters) {
+      if (f.kind.label === 'sink' && f.occupied) {
+        f.sinkT += dt;
+      } else if (f.kind.label === 'sink' && f.sinkT > 0 && !f.occupied) {
+        // resurface slowly when no longer occupied
+        f.sinkT = Math.max(0, f.sinkT - dt * 2);
+      }
+      if (f.kind.label === 'sink' && f.sinkT >= 2.0) {
+        // sunk: remove or mark sunk for a bit
+        f.sunk = true;
+      } else {
+        f.sunk = false;
+      }
+      // Sunk floaters still drift but don't carry
+      f.col += state.lanes[f.row].speed * dt;
+      if (state.lanes[f.row].dir > 0 && f.col - f.width/2 > COLS + 2) {
+        f.col -= COLS + 4;
+        f.sinkT = 0; f.sunk = false; f.occupied = false;
+      }
+      if (state.lanes[f.row].dir < 0 && f.col + f.width/2 < -2) {
+        f.col += COLS + 4;
+        f.sinkT = 0; f.sunk = false; f.occupied = false;
+      }
+    }
+
+    // Player hop tween
+    const p = state.player;
+    if (p.hopT < 1) {
+      p.hopT = Math.min(1, p.hopT + dt * 9);  // ~0.11s hop
+    }
+    const target = tileCenter(p.col, p.row);
+    // px/py tween from previous displayed to target
+    p.px = p.px + (target.x - p.px) * Math.min(1, dt * 18);
+    p.py = p.py + (target.y - p.py) * Math.min(1, dt * 18);
+    p.x = p.px;
+    p.y = p.py;
+
+    // Determine what tile the player is standing on (only when hop settled)
+    const rowType = ROW_TYPE[p.row];
+
+    if (!state.deathAnim) {
+      if (p.hopT >= 0.55) {
+        if (rowType === 'road') {
+          // Check collision with any vehicle in same row
+          const pLeft = p.col - 0.35, pRight = p.col + 0.35;
+          for (const v of state.vehicles) {
+            if (v.row !== p.row) continue;
+            const vLeft = v.col - v.width/2 + 0.12;
+            const vRight = v.col + v.width/2 - 0.12;
+            if (pRight > vLeft && pLeft < vRight) {
+              die('splat');
+              break;
+            }
+          }
+        } else if (rowType === 'river') {
+          // Must be standing on a floater
+          let found = null;
+          for (const f of state.floaters) {
+            if (f.row !== p.row || f.sunk) continue;
+            const fLeft = f.col - f.width/2 + 0.05;
+            const fRight = f.col + f.width/2 - 0.05;
+            if (p.col + 0.4 > fLeft && p.col - 0.4 < fRight) {
+              found = f;
+              break;
+            }
+          }
+          if (!found) {
+            die('drown');
+          } else {
+            // Ride the carrier: move player column with it
+            p.col += state.lanes[p.row].speed * dt;
+            // Mark sinker occupied
+            if (found.kind.label === 'sink') {
+              found.occupied = true;
+              p.sinkingOn = found;
+            } else {
+              p.sinkingOn = null;
+            }
+            // Out of bounds = drown
+            if (p.col < -0.4 || p.col > COLS - 0.6) {
+              die('drown');
+            }
+            p.onCarrier = found;
+          }
+        } else if (rowType === 'goal') {
+          // Check if on a toilet slot
+          const col = Math.round(p.col);
+          const slot = state.goalSlots.find(s => s.col === col && !s.done);
+          if (slot) {
+            onToiletReached(slot);
+          } else {
+            // Not on a toilet: fallback to treating as hedge (die: bonked on a wall)
+            // Actually the top row is strictly goals: landing between toilets = die
+            die('splat');
+          }
+        } else {
+          // safe, start, grass: just stand still
+          p.onCarrier = null;
+          // clear sinker occupancy
+          if (p.sinkingOn) { p.sinkingOn.occupied = false; p.sinkingOn = null; }
+        }
+      }
+
+      // If a river floater sank under us
+      if (p.sinkingOn && p.sinkingOn.sunk) {
+        die('drown');
+      }
+    } else {
+      // Death animation
+      state.deathAnim.t += dtMs;
+      if (state.deathAnim.t > 900) {
+        gameOver();
+      }
+    }
+
+    // Particles
+    for (const pt of state.particles) {
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      pt.vy += 0.4;
+      pt.life -= dtMs / 16;
+    }
+    state.particles = state.particles.filter(pt => pt.life > 0);
+  }
+
+  // ---------- Render ----------
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background behind grid
+    ctx.fillStyle = '#0f2410';
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw rows
+    for (let r = 0; r < ROWS; r++) {
+      const y = tileTop(r);
+      const type = ROW_TYPE[r];
+      if (type === 'start' || type === 'grass') {
+        drawGrassRow(gridX, y, gridW, TILE);
+      } else if (type === 'safe') {
+        drawFliserRow(gridX, y, gridW, TILE);
+      } else if (type === 'road') {
+        drawRoadRow(gridX, y, gridW, TILE, r);
+      } else if (type === 'river') {
+        drawRiverRow(gridX, y, gridW, TILE);
+      } else if (type === 'goal') {
+        drawGoalRow(gridX, y, gridW, TILE);
+      }
+    }
+
+    // Goal slots (toilets)
+    for (const s of state.goalSlots) {
+      const c = tileCenter(s.col, 0);
+      ctx.save();
+      ctx.font = Math.floor(TILE * 0.72) + 'px ' + EMOJI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+      ctx.fillText(s.done ? '🚻' : '🚽', c.x, c.y);
+      ctx.restore();
+    }
+
+    // Floaters (draw before player)
+    for (const f of state.floaters) {
+      const c = tileCenter(f.col, f.row);
+      const x = c.x, y = c.y;
+      ctx.save();
+      ctx.font = Math.floor(TILE * (f.kind.width >= 2 ? 0.85 : 0.7)) + 'px ' + EMOJI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetY = 2;
+      // sink fading
+      let alpha = 1;
+      if (f.kind.label === 'sink') {
+        alpha = 1 - Math.min(1, f.sinkT / 2.0) * 0.7;
+        if (f.sunk) alpha = 0.25;
+      }
+      ctx.globalAlpha = alpha;
+      // Wide logs: draw background plank first
+      if (f.kind.label === 'log') {
+        const w = TILE * f.kind.width * 0.85;
+        const h = TILE * 0.55;
+        ctx.fillStyle = '#6b4423';
+        roundRect(ctx, x - w/2, y - h/2, w, h, 8);
+        ctx.fill();
+        ctx.fillStyle = '#4a2e15';
+        ctx.strokeStyle = '#3b2509';
+        ctx.lineWidth = 2;
+        roundRect(ctx, x - w/2, y - h/2, w, h, 8);
+        ctx.stroke();
+        // little grain lines
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - w*0.4, y);
+        ctx.lineTo(x + w*0.4, y);
+        ctx.stroke();
+        ctx.fillText('🪵', x, y - 2);
+      } else {
+        ctx.fillText(f.kind.emoji, x, y);
+      }
+      ctx.restore();
+    }
+
+    // Vehicles
+    for (const v of state.vehicles) {
+      const c = tileCenter(v.col, v.row);
+      ctx.save();
+      ctx.font = Math.floor(TILE * (v.width >= 2 ? 0.95 : 0.82)) + 'px ' + EMOJI_FONT;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+      // Flip emoji horizontally when going left
+      if (v.dir < 0) {
+        ctx.translate(c.x, c.y);
+        ctx.scale(-1, 1);
+        ctx.fillText(v.kind.emoji, 0, 0);
+      } else {
+        ctx.fillText(v.kind.emoji, c.x, c.y);
+      }
+      ctx.restore();
+    }
+
+    // Player
+    drawPlayer();
+
+    // Particles
+    for (const pt of state.particles) {
+      ctx.globalAlpha = Math.max(0, pt.life / 40);
+      ctx.fillStyle = pt.color;
+      ctx.fillRect(pt.x, pt.y, 5, 5);
+    }
+    ctx.globalAlpha = 1;
+
+    // Grid border
+    ctx.strokeStyle = '#3b2509';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(gridX - 2, gridY - 2, gridW + 4, gridH + 4);
+  }
+
+  function drawGrassRow(x, y, w, h) {
+    // Grass
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#5a8f2e');
+    g.addColorStop(1, '#3d6a1f');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    // Grass blades pattern
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < w; i += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x + i, y + h);
+      ctx.lineTo(x + i + 4, y + h - 6);
+      ctx.stroke();
+    }
+  }
+
+  function drawFliserRow(x, y, w, h) {
+    // Safe fliser (paving tiles)
+    ctx.fillStyle = '#b9a883';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#6b5936';
+    ctx.lineWidth = 2;
+    for (let c = 0; c < COLS; c++) {
+      ctx.strokeRect(x + c * TILE + 1, y + 1, TILE - 2, h - 2);
+    }
+  }
+
+  function drawRoadRow(x, y, w, h, r) {
+    // Asphalt
+    ctx.fillStyle = '#26262a';
+    ctx.fillRect(x, y, w, h);
+    // Dashed lane line in middle of row
+    const lane = state.lanes[r];
+    if (lane) {
+      ctx.strokeStyle = '#ffd23f';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([14, 10]);
+      ctx.beginPath();
+      ctx.moveTo(x, y + h/2);
+      ctx.lineTo(x + w, y + h/2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // arrow hint
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.font = (h * 0.5) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(lane.dir > 0 ? '▶' : '◀', x + w - 14, y + h/2);
+      ctx.fillText(lane.dir > 0 ? '▶' : '◀', x + 14, y + h/2);
+    }
+  }
+
+  function drawRiverRow(x, y, w, h) {
+    // Toilet water
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, '#5d4021');
+    g.addColorStop(0.5, '#6b5126');
+    g.addColorStop(1, '#4a3318');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    // ripples
+    ctx.strokeStyle = 'rgba(255, 210, 63, 0.12)';
+    ctx.lineWidth = 2;
+    const t = performance.now() / 400;
+    for (let i = 0; i < 5; i++) {
+      const offs = (t + i * 1.3) % 2.0;
+      ctx.beginPath();
+      ctx.ellipse(x + (i * w/5) + 30, y + h/2 + Math.sin(t + i) * 4, 18, 3, 0, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  function drawGoalRow(x, y, w, h) {
+    // Tiled restroom floor
+    ctx.fillStyle = '#e7d9b8';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#a38b63';
+    ctx.lineWidth = 1.5;
+    for (let c = 0; c < COLS; c++) {
+      ctx.strokeRect(x + c * TILE + 0.5, y + 0.5, TILE - 1, h - 1);
+    }
+    // top trim
+    ctx.fillStyle = '#3b2509';
+    ctx.fillRect(x, y, w, 3);
+  }
+
+  function drawPlayer() {
+    const p = state.player;
+    // Hop arc: scale up mid-hop
+    const hop = p.hopT < 1 ? Math.sin(p.hopT * Math.PI) : 0;
+    const yOff = -hop * TILE * 0.35;
+    const scale = 1 + hop * 0.15;
+
+    ctx.save();
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + TILE * 0.33, TILE * 0.32 * (1 - hop * 0.4), TILE * 0.09 * (1 - hop * 0.4), 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // If drowning, tilt + sink
+    let tilt = 0;
+    let extraY = 0;
+    let alpha = 1;
+    if (state.deathAnim) {
+      const t = state.deathAnim.t / 900;
+      if (state.deathAnim.kind === 'drown') {
+        extraY = t * TILE * 0.4;
+        alpha = 1 - t * 0.6;
+      } else {
+        tilt = (t * Math.PI) * 0.2;
+        extraY = -t * 6;
+      }
+    }
+
+    ctx.translate(p.x, p.y + yOff + extraY);
+    ctx.rotate(tilt);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
+    ctx.font = Math.floor(TILE * 0.72) + 'px ' + EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // body shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText('💩', 0, 0);
+    // facing eyes accent
+    ctx.shadowColor = 'transparent';
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // ---------- Main loop ----------
+  function frame(t) {
+    const dtMs = Math.min(40, t - lastT) || 16;
+    lastT = t;
+    update(dtMs);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- Buttons ----------
+  document.getElementById('start-btn').onclick = startGame;
+  document.getElementById('restart-btn').onclick = startGame;
+
+  // Mount mute button (shared module)
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+  });
+  if (document.readyState !== 'loading' && window.LS && window.LS.mountMuteButton) {
+    window.LS.mountMuteButton();
+  }
+
+  // Initial player pos
+  resetPlayerToStart();
+
+})();
+</script>
+</body>
+</html>

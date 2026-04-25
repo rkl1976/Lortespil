@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Lortespil - Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { min-height: 100%; font-family: 'Fredoka', sans-serif; }
@@ -56,7 +58,7 @@
   }
   header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     padding: 20px;
   }
   h1 {
@@ -85,18 +87,121 @@
     letter-spacing: 2px;
     opacity: 0.85;
   }
-  .total-score {
+  .badges {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .badge {
     background: #fff9e6;
     border: 4px solid #3b2509;
     border-radius: 18px;
-    padding: 12px 24px;
-    display: inline-block;
-    margin-top: 18px;
+    padding: 10px 20px;
     font-family: 'Bungee', sans-serif;
     color: #3b2509;
     box-shadow: 5px 5px 0 #3b2509;
-    font-size: 20px;
+    font-size: 18px;
   }
+  .badge.coins { background: #ffd23f; }
+
+  /* Daily banner */
+  .daily-banner {
+    background: #fff9e6;
+    border: 5px solid #3b2509;
+    border-radius: 22px;
+    padding: 20px 22px;
+    box-shadow: 7px 7px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin: 0 8px 28px;
+    position: relative;
+    transform: rotate(-1deg);
+    animation: dailyPulse 2.4s infinite alternate ease-in-out;
+    overflow: hidden;
+  }
+  @keyframes dailyPulse {
+    0%   { box-shadow: 7px 7px 0 #3b2509, 0 0 0 rgba(255,210,63,0); }
+    100% { box-shadow: 7px 7px 0 #3b2509, 0 0 32px rgba(255,210,63,0.85); }
+  }
+  .daily-emoji {
+    font-size: 80px;
+    flex-shrink: 0;
+    animation: bobbing 2.5s infinite alternate ease-in-out;
+    filter: drop-shadow(3px 4px 0 rgba(0,0,0,0.22));
+  }
+  .daily-info { flex: 1; min-width: 0; }
+  .daily-label {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 3px 10px;
+    border-radius: 8px;
+    border: 2px solid #3b2509;
+    font-size: 11px;
+    letter-spacing: 1px;
+    transform: rotate(-4deg);
+    margin-bottom: 6px;
+  }
+  .daily-title {
+    font-family: 'Bungee', sans-serif;
+    color: #3b2509;
+    font-size: 22px;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .daily-desc {
+    color: #3b2509;
+    font-size: 14px;
+    opacity: 0.82;
+    margin-bottom: 10px;
+  }
+  .daily-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .daily-mult {
+    background: #ffd23f;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 14px;
+    padding: 4px 10px;
+    color: #3b2509;
+    box-shadow: 2px 2px 0 #3b2509;
+  }
+  .daily-btn {
+    background: #3b2509;
+    color: #ffd23f;
+    font-family: 'Bungee', sans-serif;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.25);
+    text-decoration: none;
+    letter-spacing: 1px;
+  }
+  .daily-done {
+    position: absolute;
+    inset: 0;
+    background: rgba(93,160,70,0.85);
+    color: #fff9e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bungee', sans-serif;
+    font-size: 28px;
+    text-shadow: 3px 3px 0 #1e4010;
+    letter-spacing: 2px;
+    transform: rotate(-5deg);
+  }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -191,6 +296,97 @@
     z-index: 2;
     letter-spacing: 1px;
   }
+
+  /* Hat shop */
+  .shop-section {
+    margin: 48px 8px 0;
+  }
+  .shop-header {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .shop-title {
+    font-family: 'Bungee', sans-serif;
+    color: #ffd23f;
+    font-size: clamp(30px, 7vw, 46px);
+    letter-spacing: 2px;
+    text-shadow: 3px 3px 0 #3b2509, 6px 6px 0 rgba(0,0,0,0.35);
+    transform: rotate(-2deg);
+    display: inline-block;
+  }
+  .shop-sub {
+    color: #fff9e6;
+    font-size: 14px;
+    opacity: 0.75;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+  .hat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .hat-card {
+    background: #fff9e6;
+    border: 4px solid #3b2509;
+    border-radius: 18px;
+    padding: 14px 10px 12px;
+    box-shadow: 5px 5px 0 #3b2509;
+    text-align: center;
+    position: relative;
+    transition: transform 0.1s;
+  }
+  .hat-card.equipped {
+    background: linear-gradient(135deg, #ffd23f 0%, #ffeb80 100%);
+    transform: rotate(-2deg);
+  }
+  .hat-emoji {
+    font-size: 72px;
+    line-height: 1;
+    margin-bottom: 6px;
+    filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.2));
+    animation: bobbing 2.5s infinite alternate ease-in-out;
+  }
+  .hat-name {
+    font-family: 'Bungee', sans-serif;
+    font-size: 18px;
+    color: #3b2509;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .hat-btn {
+    display: inline-block;
+    width: 100%;
+    font-family: 'Bungee', sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    cursor: pointer;
+    letter-spacing: 1px;
+    box-shadow: 3px 3px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    color: #3b2509;
+  }
+  .hat-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #3b2509; }
+  .hat-btn.locked { background: #c8c0b0; color: #5a4a30; cursor: not-allowed; opacity: 0.75; }
+  .hat-btn.buy { background: #ffd23f; }
+  .hat-btn.equip { background: #8dd96e; color: #1e4010; }
+  .hat-btn.equipped-stamp {
+    background: repeating-linear-gradient(45deg, #ffd23f, #ffd23f 8px, #ffeb80 8px, #ffeb80 16px);
+    cursor: pointer;
+  }
+  .hidden { display: none !important; }
+  .hat-card.shake { animation: hatShake 0.4s; }
+  @keyframes hatShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-6px, 2px) rotate(-2deg); }
+    40% { transform: translate(5px, -2px) rotate(2deg); }
+    60% { transform: translate(-4px, -2px) rotate(-1deg); }
+    80% { transform: translate(4px, 2px) rotate(1deg); }
+  }
+
   footer {
     text-align: center;
     margin-top: 48px;
@@ -221,8 +417,25 @@
   <header>
     <h1>Lorte<span class="emoji">💩</span>spil</h1>
     <div class="subtitle">5 RÅDNE SPIL · ÉN PORTAL</div>
-    <div class="total-score">🏆 Samlet score: <span id="total-score">0</span></div>
+    <div class="badges">
+      <div class="badge">🏆 Samlet score: <span id="total-score">0</span></div>
+      <div class="badge coins">🪙 Lorte-mønter: <span id="coin-balance">0</span></div>
+    </div>
   </header>
+
+  <div id="daily-banner" class="daily-banner" style="display:none;">
+    <div class="daily-emoji" id="daily-emoji">💩</div>
+    <div class="daily-info">
+      <div class="daily-label">⭐ DAGENS LORT</div>
+      <div class="daily-title" id="daily-title">Dagens udfordring</div>
+      <div class="daily-desc" id="daily-desc">Klar den særlige udfordring i dag!</div>
+      <div class="daily-actions">
+        <div class="daily-mult" id="daily-mult">×2</div>
+        <a class="daily-btn" id="daily-btn" href="#">SPIL NU →</a>
+      </div>
+    </div>
+    <div class="daily-done hidden" id="daily-done">✅ FULDFØRT!</div>
+  </div>
 
   <div class="grid">
     <a class="game-card" href="lort-paa-loeb.html" style="background:linear-gradient(135deg,#a8e0ff 0%,#5fb33c 100%);">
@@ -271,24 +484,124 @@
       </div>
     </a>
 
-    <a class="game-card" href="#" onclick="return false" style="background:repeating-linear-gradient(45deg,#3b2509,#3b2509 20px,#4a3018 20px,#4a3018 40px);color:#fff9e6;cursor:default;opacity:0.7;">
+    <a class="game-card" href="kloak-hop.html" style="background:linear-gradient(135deg,#8dd96e 0%,#3a7a2a 50%,#2a6a9a 100%);color:#fff9e6;">
+      <div class="tag">NY!</div>
       <div class="card-content">
-        <div class="game-emoji">❓</div>
-        <div class="game-title" style="color:#ffd23f;">Kommer snart...</div>
-        <div class="game-desc">Flere lortespil er på vej! Bliv ved med at spille.</div>
-        <div class="game-high" style="color:#3b2509;">🔒 Låst</div>
+        <div class="game-emoji">🐸</div>
+        <div class="game-title" style="color:#ffd23f;">Kloak-Hop</div>
+        <div class="game-desc">Hop lorten over trafikken og kloakvandet til toilettet!</div>
+        <div class="game-high" style="color:#3b2509;">🏆 <span data-game="hop_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="tarm-slange.html" style="background:radial-gradient(ellipse at center,#e8a4a8 0%,#6b2828 100%);color:#fff9e6;">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">🌭</div>
+        <div class="game-title" style="color:#ffd23f;">Tarm-Slange</div>
+        <div class="game-desc">Spis pølser og bliv lang i tarmen — undgå fluerne!</div>
+        <div class="game-high" style="color:#3b2509;">🏆 <span data-game="snake_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="plop-pop.html" style="background:linear-gradient(135deg,#f5e8d0 0%,#a04ec8 100%);">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">🫧</div>
+        <div class="game-title">Plop-Pop</div>
+        <div class="game-desc">Skyd farvede lort-bobler og match 3 i den klassiske bubble-skydespil!</div>
+        <div class="game-high">🏆 <span data-game="plop_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="lorte-bobble.html" style="background:linear-gradient(135deg,#1a0833 0%,#3b2509 100%);color:#fff9e6;">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">🫧</div>
+        <div class="game-title" style="color:#ffd23f;">Lorte-Bobble</div>
+        <div class="game-desc">Hop på platforme, fang fluer i bobler — Bubble Bobble med lort!</div>
+        <div class="game-high" style="color:#3b2509;">🏆 <span data-game="bobble_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="kloak-putt.html" style="background:linear-gradient(135deg,#7a5a30 0%,#3b2509 100%);color:#fff9e6;">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">⛳</div>
+        <div class="game-title" style="color:#ffd23f;">Kloak-Putt</div>
+        <div class="game-desc">9 huller mini-golf. Putt lorten i toilettet på færrest slag!</div>
+        <div class="game-high" style="color:#3b2509;">🏆 <span data-game="putt_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="stink-stop.html" style="background:linear-gradient(135deg,#f0ede0 0%,#b8b0a0 100%);">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">🔨</div>
+        <div class="game-title">Stink-Stop</div>
+        <div class="game-desc">Whack-a-mole med toiletter. Ram lorte, undgå rotter og blomster!</div>
+        <div class="game-high">🏆 <span data-game="stink_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="lort-sorter.html" style="background:linear-gradient(135deg,#5a3818 0%,#2a1808 100%);color:#fff9e6;">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">🗑️</div>
+        <div class="game-title" style="color:#ffd23f;">Lort-Sorter</div>
+        <div class="game-desc">Sorter faldende objekter i SKYL, UD eller GEM så hurtigt du kan!</div>
+        <div class="game-high" style="color:#3b2509;">🏆 <span data-game="sorter_highscore">0</span></div>
+      </div>
+    </a>
+
+    <a class="game-card" href="kloak-klatrer.html" style="background:linear-gradient(180deg,#3b2509 0%,#1a0a02 50%,#5a4020 100%);color:#fff9e6;">
+      <div class="tag">NY!</div>
+      <div class="card-content">
+        <div class="game-emoji">🪜</div>
+        <div class="game-title" style="color:#ffd23f;">Kloak-Klatrer</div>
+        <div class="game-desc">Hop opad på rør mens kloakvandet stiger nedefra. Hvor højt når du?</div>
+        <div class="game-high" style="color:#3b2509;">🏆 <span data-game="klatrer_highscore">0</span></div>
       </div>
     </a>
   </div>
 
+  <section class="shop-section" id="shop-section" style="display:none;">
+    <div class="shop-header">
+      <div class="shop-title">🎩 LORTE-BUTIK</div>
+      <div class="shop-sub">Klæd din lort på i Lort på Løb</div>
+    </div>
+    <div class="hat-grid" id="hat-grid"></div>
+  </section>
+
   <footer>
     <div>Lavet med 💩 og kærlighed · Brug piletasterne eller fingeren</div>
-    <button class="reset-btn" onclick="resetAll()">Nulstil alle highscores</button>
+    <button class="reset-btn" onclick="resetAll()">Nulstil alt (scores, mønter, hatte)</button>
   </footer>
 </div>
 
 <script>
-  // Load highscores from localStorage
+  const GAME_EMOJI = {
+    poop: '💩', racer: '🛵', tetris: '🚽', invaders: '🪰', flappy: '💨',
+    hop: '🐸', snake: '🌭', plop: '🫧', bobble: '🫧', putt: '⛳',
+    stink: '🔨', sorter: '🗑️', klatrer: '🪜'
+  };
+  const GAME_LINK = {
+    poop: 'lort-paa-loeb.html',
+    racer: 'kloak-racer.html',
+    tetris: 'toilet-tetris.html',
+    invaders: 'flue-invaders.html',
+    flappy: 'lort-flappy.html',
+    hop: 'kloak-hop.html',
+    snake: 'tarm-slange.html',
+    plop: 'plop-pop.html',
+    bobble: 'lorte-bobble.html',
+    putt: 'kloak-putt.html',
+    stink: 'stink-stop.html',
+    sorter: 'lort-sorter.html',
+    klatrer: 'kloak-klatrer.html'
+  };
+
+  // Fallback: original simple score-listing behavior
   function loadScores() {
     let total = 0;
     document.querySelectorAll('[data-game]').forEach(el => {
@@ -299,16 +612,190 @@
     });
     document.getElementById('total-score').textContent = total;
   }
-  loadScores();
 
-  function resetAll() {
-    if (!confirm('Sikker på at du vil nulstille ALLE highscores?')) return;
-    ['poop_highscore','racer_highscore','tetris_highscore','invaders_highscore','flappy_highscore'].forEach(k => localStorage.removeItem(k));
+  function renderScores() {
     loadScores();
+    if (window.LS) {
+      try {
+        document.getElementById('coin-balance').textContent = LS.getCoins();
+      } catch (e) { /* ignore */ }
+    }
   }
 
+  function renderDaily() {
+    const banner = document.getElementById('daily-banner');
+    if (!window.LS || !LS.getDaily) {
+      banner.style.display = 'none';
+      return;
+    }
+    let daily;
+    try { daily = LS.getDaily(); } catch (e) { daily = null; }
+    if (!daily) {
+      banner.style.display = 'none';
+      return;
+    }
+    banner.style.display = 'flex';
+    const emoji = GAME_EMOJI[daily.gameKey] || '💩';
+    const link = GAME_LINK[daily.gameKey] || '#';
+    document.getElementById('daily-emoji').textContent = emoji;
+    document.getElementById('daily-title').textContent = daily.title || 'Dagens lort';
+    document.getElementById('daily-desc').textContent = daily.desc || '';
+    const multEl = document.getElementById('daily-mult');
+    if (daily.multiplier) {
+      multEl.style.display = 'inline-block';
+      multEl.textContent = '×' + daily.multiplier;
+    } else {
+      multEl.style.display = 'none';
+    }
+    document.getElementById('daily-btn').href = link;
+    const doneEl = document.getElementById('daily-done');
+    if (daily.completed) {
+      doneEl.classList.remove('hidden');
+    } else {
+      doneEl.classList.add('hidden');
+    }
+  }
+
+  function renderHatShop() {
+    const section = document.getElementById('shop-section');
+    const grid = document.getElementById('hat-grid');
+    if (!window.LS || !LS.HATS) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    grid.innerHTML = '';
+    const coins = (function(){ try { return LS.getCoins(); } catch(e){ return 0; } })();
+    const unlocked = (function(){ try { return LS.getUnlockedHats() || []; } catch(e){ return []; } })();
+    const equipped = (function(){ try { return LS.getEquippedHat() || ''; } catch(e){ return ''; } })();
+
+    LS.HATS.forEach(hat => {
+      const card = document.createElement('div');
+      card.className = 'hat-card';
+      const isUnlocked = unlocked.indexOf(hat.emoji) !== -1;
+      const isEquipped = equipped === hat.emoji;
+      if (isEquipped) card.classList.add('equipped');
+
+      const emojiEl = document.createElement('div');
+      emojiEl.className = 'hat-emoji';
+      emojiEl.textContent = hat.emoji;
+      card.appendChild(emojiEl);
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'hat-name';
+      nameEl.textContent = hat.name || '';
+      card.appendChild(nameEl);
+
+      const btn = document.createElement('button');
+      btn.className = 'hat-btn';
+      let state; // 'locked' | 'buy' | 'equip' | 'equipped'
+      if (isEquipped) state = 'equipped';
+      else if (isUnlocked) state = 'equip';
+      else if (coins >= (hat.price || 0)) state = 'buy';
+      else state = 'locked';
+
+      if (state === 'locked') {
+        btn.classList.add('locked');
+        btn.innerHTML = '🔒 ' + (hat.price || 0) + ' 🪙';
+      } else if (state === 'buy') {
+        btn.classList.add('buy');
+        btn.innerHTML = 'KØB ' + (hat.price || 0) + ' 🪙';
+      } else if (state === 'equip') {
+        btn.classList.add('equip');
+        btn.textContent = 'TAG PÅ';
+      } else if (state === 'equipped') {
+        btn.classList.add('equipped-stamp');
+        btn.textContent = '✓ BÆRES NU';
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!window.LS) return;
+        if (state === 'locked') {
+          card.classList.remove('shake');
+          // Force reflow for animation restart
+          void card.offsetWidth;
+          card.classList.add('shake');
+          if (LS.toast) LS.toast('Skal bruge ' + (hat.price || 0) + ' 🪙!');
+          return;
+        }
+        if (state === 'buy') {
+          try {
+            if (LS.spendCoins(hat.price || 0)) {
+              LS.unlockHat(hat.emoji);
+              if (LS.sfx && LS.sfx.play) LS.sfx.play('coin');
+              if (LS.toast) LS.toast('🎉 Købt!');
+              renderAll();
+            }
+          } catch (err) { /* ignore */ }
+          return;
+        }
+        if (state === 'equip') {
+          try {
+            LS.setEquippedHat(hat.emoji);
+            if (LS.sfx && LS.sfx.play) LS.sfx.play('click');
+            renderAll();
+          } catch (err) { /* ignore */ }
+          return;
+        }
+        if (state === 'equipped') {
+          try {
+            LS.setEquippedHat('');
+            if (LS.sfx && LS.sfx.play) LS.sfx.play('click');
+            renderAll();
+          } catch (err) { /* ignore */ }
+          return;
+        }
+      });
+
+      card.appendChild(btn);
+      grid.appendChild(card);
+    });
+  }
+
+  function renderAll() {
+    renderScores();
+    renderDaily();
+    renderHatShop();
+  }
+
+  function resetAll() {
+    if (!confirm('Sikker på at du vil nulstille ALT? Highscores, mønter, hatte og dagens lort forsvinder.')) return;
+    const keys = [
+      'poop_highscore','racer_highscore','tetris_highscore','invaders_highscore','flappy_highscore',
+      'hop_highscore','snake_highscore','plop_highscore','bobble_highscore','putt_highscore',
+      'stink_highscore','sorter_highscore','klatrer_highscore',
+      'poop_unlocked',
+      'lorte_coins','lorte_equipped_hat','lorte_unlocked_hats','lorte_daily_state','lorte_muted'
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
+    // Also clear any lorte_* keys that may have been added
+    try {
+      Object.keys(localStorage).filter(k => k.indexOf('lorte_') === 0).forEach(k => localStorage.removeItem(k));
+    } catch (e) { /* ignore */ }
+    renderAll();
+  }
+
+  // Initial render (works even without LS — fallback just shows scores)
+  renderAll();
+
+  // Re-render on visibility change (coming back from a game)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) renderAll();
+  });
+  window.addEventListener('pageshow', () => renderAll());
+  window.addEventListener('focus', () => renderAll());
+
+  // LS might be loaded by the deferred script — re-render when DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    renderAll();
+    if (window.LS && LS.mountMuteButton) {
+      try { LS.mountMuteButton(); } catch (e) { /* ignore */ }
+    }
+  });
+
   // Floating background emojis
-  const emojis = ['💩','🧻','🪰','🚽','💨','🏆','✨','🧼'];
+  const emojis = ['💩','🧻','🪰','🚽','💨','🏆','✨','🧼','🪙','🎩'];
   const floats = document.getElementById('floats');
   for (let i=0; i<14; i++) {
     const e = document.createElement('div');

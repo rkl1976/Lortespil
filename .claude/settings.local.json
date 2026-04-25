@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check lortespil.js)",
+      "Bash(node -e ' *)",
+      "Bash(cmd.exe /c start \"\" \"index.html\")",
+      "Bash(python3 -c ' *)",
+      "Bash(node --check hop-extracted.tmp.js)",
+      "Bash(rm -f hop-extracted.tmp.js)",
+      "Bash(node --check _check.tmp.js)",
+      "Bash(rm -f _check.tmp.js)"
+    ]
+  }
+}

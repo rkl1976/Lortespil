@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Lorte-Bobble</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #1a0833; }
+  body { touch-action: none; position: fixed; width: 100%; }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: -webkit-optimize-contrast; }
+
+  #hud {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 15px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(20,5,40,0.55), rgba(0,0,0,0.92));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+
+  /* Mobile controls */
+  .ctl-btn {
+    position: absolute;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 4px solid #3b2509;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    font-size: 26px;
+    box-shadow: 4px 4px 0 #3b2509;
+    z-index: 12;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .ctl-btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 #3b2509; }
+  body.playing .ctl-btn { display: flex; }
+  #left-btn  { left: 14px;  bottom: max(20px, env(safe-area-inset-bottom)); background: #6b4ce6; }
+  #right-btn { left: 100px; bottom: max(20px, env(safe-area-inset-bottom)); background: #6b4ce6; }
+  #jump-btn  { right: 100px; bottom: max(20px, env(safe-area-inset-bottom)); background: #38c172; }
+  #fire-btn  { right: 14px;  bottom: max(20px, env(safe-area-inset-bottom)); background: #ff4e6b; }
+
+  /* Hide mobile controls on desktop / wide screens with mouse */
+  @media (hover: hover) and (pointer: fine) {
+    body.playing .ctl-btn { display: none; }
+  }
+
+  .level-banner {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-4deg);
+    background: #ffd23f;
+    color: #3b2509;
+    padding: 14px 28px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 32px;
+    border: 4px solid #3b2509;
+    border-radius: 14px;
+    box-shadow: 5px 5px 0 #3b2509;
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .level-banner.show {
+    opacity: 1;
+    animation: bannerPop 1.6s ease-out forwards;
+  }
+  @keyframes bannerPop {
+    0% { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(0.4); }
+    20% { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1.1); }
+    40% { transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(1); }
+  }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="score-card">🎯 <span id="score">0</span></div>
+    <div class="score-card"><span id="lives">❤️❤️❤️</span></div>
+    <div class="score-card">🪧 L<span id="level">1</span></div>
+    <div class="score-card">🏆 <span id="high">0</span></div>
+  </div>
+
+  <button class="ctl-btn" id="left-btn">◀</button>
+  <button class="ctl-btn" id="right-btn">▶</button>
+  <button class="ctl-btn" id="jump-btn">▲</button>
+  <button class="ctl-btn" id="fire-btn">🫧</button>
+
+  <div class="level-banner" id="banner">LEVEL 1</div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>LORTE<br>BOBBLE</h1>
+    <p>Hop på platforme 💩 og pust toiletbobler 🫧 mod fluer 🪰 og rotter 🐀!<br>Spring på en fanget fjende for at poppe boblen.<br><br>
+       ⬅➡ eller A/D for at gå<br>⬆ / W / SPACE for at hoppe<br>E / Z / SHIFT for at pust en boble</p>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">💀</div>
+    <h1>GAME OVER!</h1>
+    <p id="go-text">Du fik <b><span id="final">0</span></b> point<br>på level <b><span id="final-level">1</span></b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">PRØV IGEN</button>
+  </div>
+</div>
+<style>
+  @keyframes spin { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+</style>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = window.innerWidth, H = window.innerHeight;
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildLevelLayout();
+}
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+
+// ---------- Game state ----------
+const TILE = 28;          // logical tile size
+const GRAVITY = 0.5;
+const JUMP_VY = -10;
+const MOVE_SPEED = 3;
+const BUBBLE_DRIFT = 2;
+const BUBBLE_FLOAT_DELAY = 1000; // ms drifting forward before floating up
+const BUBBLE_LIFETIME = 5000;    // ms total
+const TRAP_DURATION = 4000;      // ms
+
+const player = {
+  x: 100, y: 100, w: 28, h: 30,
+  vx: 0, vy: 0,
+  onGround: false,
+  facing: 1,
+  alive: true,
+  invincibleUntil: 0,
+  fireCooldown: 0
+};
+
+let platforms = [];   // { x, y, w, h }
+let bubbles = [];     // { x, y, vx, vy, born, trapped, enemy }
+let enemies = [];     // { x, y, w, h, vx, vy, type, dir, onGround, baseY, t }
+let treats = [];      // { x, y, vy, born, kind, value }
+let particles = [];
+let floaters = [];    // floating score text { x, y, text, life, color }
+
+let score = 0;
+let lives = 3;
+let level = 1;
+let levelsCleared = 0;
+let livesLost = 0;
+let running = false;
+let levelTransitioning = false;
+
+// highscore (LS doesn't have a 'bobble' HIGH_KEYS entry, so manage locally)
+let highScore = parseInt(localStorage.getItem('bobble_highscore') || '0', 10);
+
+// ---------- DOM ----------
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const levelEl = document.getElementById('level');
+const highEl = document.getElementById('high');
+const finalEl = document.getElementById('final');
+const finalLevelEl = document.getElementById('final-level');
+const startOverlay = document.getElementById('start-overlay');
+const gameOverOverlay = document.getElementById('game-over-overlay');
+const newBestEl = document.getElementById('new-best');
+const banner = document.getElementById('banner');
+highEl.textContent = highScore;
+
+// ---------- Input ----------
+const keys = { left: false, right: false, jump: false, jumpEdge: false, fire: false, fireEdge: false };
+
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': keys.left = true; e.preventDefault(); break;
+    case 'ArrowRight': case 'KeyD': keys.right = true; e.preventDefault(); break;
+    case 'ArrowUp': case 'KeyW': case 'Space':
+      if (!keys.jump) keys.jumpEdge = true;
+      keys.jump = true; e.preventDefault(); break;
+    case 'KeyE': case 'KeyZ': case 'ShiftLeft': case 'ShiftRight':
+      if (!keys.fire) keys.fireEdge = true;
+      keys.fire = true; e.preventDefault(); break;
+  }
+});
+document.addEventListener('keyup', (e) => {
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': keys.left = false; break;
+    case 'ArrowRight': case 'KeyD': keys.right = false; break;
+    case 'ArrowUp': case 'KeyW': case 'Space': keys.jump = false; break;
+    case 'KeyE': case 'KeyZ': case 'ShiftLeft': case 'ShiftRight': keys.fire = false; break;
+  }
+});
+
+function bindHold(btn, onDown, onUp) {
+  let active = false;
+  const down = (e) => { e.preventDefault(); if (!active) { active = true; onDown(); } };
+  const up = (e) => { if (active) { active = false; onUp(); } };
+  btn.addEventListener('touchstart', down, { passive: false });
+  btn.addEventListener('touchend', up);
+  btn.addEventListener('touchcancel', up);
+  btn.addEventListener('mousedown', down);
+  btn.addEventListener('mouseup', up);
+  btn.addEventListener('mouseleave', up);
+}
+bindHold(document.getElementById('left-btn'),
+  () => { keys.left = true; },
+  () => { keys.left = false; });
+bindHold(document.getElementById('right-btn'),
+  () => { keys.right = true; },
+  () => { keys.right = false; });
+bindHold(document.getElementById('jump-btn'),
+  () => { if (!keys.jump) keys.jumpEdge = true; keys.jump = true; },
+  () => { keys.jump = false; });
+bindHold(document.getElementById('fire-btn'),
+  () => { if (!keys.fire) keys.fireEdge = true; keys.fire = true; },
+  () => { keys.fire = false; });
+
+// ---------- Level layout ----------
+// We define a fractional layout that scales with screen size.
+// Pattern: ground row at bottom, two mid platforms, two top side platforms, one center top.
+function buildLevelLayout() {
+  platforms = [];
+  // walls (left/right) - implicit via clamping; we still draw side bricks visually
+  const wallT = 18;
+  // Ground row (slight gap at edges to allow wraparound to be visible? classic Bubble Bobble has full ground)
+  // We'll have a full ground row at the bottom and use bottom-of-screen wraparound when entity falls below.
+  const groundY = H - 70;
+  platforms.push({ x: 0, y: groundY, w: W, h: 28, kind: 'ground' });
+
+  // Mid platforms (two)
+  const midY = H * 0.62;
+  const midW = Math.min(220, W * 0.32);
+  platforms.push({ x: W * 0.08, y: midY, w: midW, h: 18, kind: 'plat' });
+  platforms.push({ x: W - W * 0.08 - midW, y: midY, w: midW, h: 18, kind: 'plat' });
+
+  // Center mid lower bridge
+  const bridgeW = Math.min(180, W * 0.26);
+  platforms.push({ x: (W - bridgeW) / 2, y: H * 0.74, w: bridgeW, h: 16, kind: 'plat' });
+
+  // Top side platforms
+  const topY = H * 0.42;
+  const topW = Math.min(180, W * 0.26);
+  platforms.push({ x: W * 0.04, y: topY, w: topW, h: 18, kind: 'plat' });
+  platforms.push({ x: W - W * 0.04 - topW, y: topY, w: topW, h: 18, kind: 'plat' });
+
+  // Top center
+  const centerW = Math.min(220, W * 0.32);
+  platforms.push({ x: (W - centerW) / 2, y: H * 0.26, w: centerW, h: 16, kind: 'plat' });
+
+  // Side walls (visual + collision)
+  platforms.push({ x: 0, y: 0, w: wallT, h: H, kind: 'wall' });
+  platforms.push({ x: W - wallT, y: 0, w: wallT, h: H, kind: 'wall' });
+}
+buildLevelLayout();
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- Helpers ----------
+function aabb(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function spawnParticles(x, y, color, count, speed) {
+  count = count || 8;
+  speed = speed || 4;
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * speed + 0.5;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 1,
+      life: 30 + Math.random() * 20,
+      maxLife: 50,
+      color: color || '#ffd23f'
+    });
+  }
+}
+
+function addFloater(x, y, text, color) {
+  floaters.push({ x, y, text, color: color || '#ffd23f', life: 60 });
+}
+
+// ---------- Spawning ----------
+function startLevel(n) {
+  levelTransitioning = false;
+  level = n;
+  levelEl.textContent = level;
+  buildLevelLayout();
+  bubbles = [];
+  enemies = [];
+  treats = [];
+  particles = [];
+  floaters = [];
+  // Reset player position
+  player.x = 80;
+  player.y = H * 0.62 - player.h - 10;
+  player.vx = 0; player.vy = 0;
+  player.onGround = false;
+  player.facing = 1;
+  player.alive = true;
+  player.invincibleUntil = 0;
+
+  // Spawn enemies. Count = 4 + (level-1), capped at 8.
+  const count = Math.min(8, 4 + (level - 1));
+  // Speed bump per level
+  const speedMul = 1 + (level - 1) * 0.12;
+
+  // Choose spawn platforms - skip ground to keep things interesting
+  const platsForSpawn = platforms.filter(p => p.kind === 'plat');
+  for (let i = 0; i < count; i++) {
+    const isFly = Math.random() < 0.5;
+    if (isFly) {
+      // fly - free roaming, spawn near top
+      enemies.push({
+        type: 'fly',
+        x: 60 + Math.random() * (W - 120),
+        y: 80 + Math.random() * (H * 0.3),
+        w: 30, h: 26,
+        vx: (Math.random() < 0.5 ? -1 : 1) * 1.6 * speedMul,
+        vy: 0,
+        baseY: 0,
+        t: Math.random() * Math.PI * 2,
+        onGround: false,
+        dir: 1
+      });
+    } else {
+      // rat - on a platform, walks
+      const p = platsForSpawn[i % platsForSpawn.length];
+      enemies.push({
+        type: 'rat',
+        x: p.x + 20 + Math.random() * (p.w - 60),
+        y: p.y - 28,
+        w: 32, h: 28,
+        vx: (Math.random() < 0.5 ? -1 : 1) * 1.4 * speedMul,
+        vy: 0,
+        onGround: true,
+        dir: 1,
+        t: 0,
+        baseY: 0
+      });
+    }
+  }
+
+  // Show banner
+  banner.textContent = 'LEVEL ' + level;
+  banner.classList.remove('show');
+  // restart anim
+  void banner.offsetWidth;
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 1700);
+}
+
+// ---------- Player update ----------
+function updatePlayer(dt) {
+  if (!player.alive) return;
+
+  // Horizontal input
+  let ax = 0;
+  if (keys.left) { ax -= 1; player.facing = -1; }
+  if (keys.right) { ax += 1; player.facing = 1; }
+  player.vx = ax * MOVE_SPEED;
+
+  // Jump
+  if (keys.jumpEdge && player.onGround) {
+    player.vy = JUMP_VY;
+    player.onGround = false;
+    if (window.LS && LS.sfx) LS.sfx.play('jump');
+  }
+  keys.jumpEdge = false;
+
+  // Fire bubble (cooldown)
+  player.fireCooldown -= dt;
+  if (keys.fireEdge && player.fireCooldown <= 0) {
+    fireBubble();
+    player.fireCooldown = 14;
+  }
+  keys.fireEdge = false;
+
+  // Gravity
+  player.vy += GRAVITY * dt;
+  if (player.vy > 14) player.vy = 14;
+
+  // Move horizontally then resolve
+  player.x += player.vx * dt;
+  resolveHorizontal(player);
+
+  // Move vertically
+  player.y += player.vy * dt;
+  player.onGround = false;
+  resolveVertical(player, dt);
+
+  // Wraparound bottom -> top
+  if (player.y > H + 20) {
+    player.y = -player.h;
+    player.vy = 2;
+  }
+
+  // Touch enemy = lose life (unless invincible)
+  if (performance.now() > player.invincibleUntil) {
+    for (const e of enemies) {
+      if (e.trapped) continue; // safe to touch trapped
+      if (rectOverlap(player.x, player.y, player.w, player.h, e.x, e.y, e.w, e.h)) {
+        loseLife();
+        break;
+      }
+    }
+  }
+}
+
+// AABB collide vs platforms (pass kind != 'wall' for solid floors; walls collide all sides)
+function resolveHorizontal(o) {
+  for (const p of platforms) {
+    if (p.kind === 'wall') {
+      if (rectOverlap(o.x, o.y, o.w, o.h, p.x, p.y, p.w, p.h)) {
+        if (o.vx > 0) o.x = p.x - o.w;
+        else if (o.vx < 0) o.x = p.x + p.w;
+        o.vx = 0;
+      }
+    } else if (p.kind === 'plat') {
+      // Mid platforms - one-way: only collide horizontally if we're firmly at platform level (rare)
+      // Skip horizontal collision so player can pass through edges
+      continue;
+    } else if (p.kind === 'ground') {
+      // ground row - block horizontally if standing inside (only at edges)
+      if (rectOverlap(o.x, o.y, o.w, o.h, p.x, p.y, p.w, p.h)) {
+        // Push out vertically not horizontally; ground fills bottom
+        // Do nothing for horizontal here — let vertical handle it
+      }
+    }
+  }
+}
+
+function resolveVertical(o, dtUsed) {
+  for (const p of platforms) {
+    if (p.kind === 'wall') {
+      if (rectOverlap(o.x, o.y, o.w, o.h, p.x, p.y, p.w, p.h)) {
+        if (o.vy > 0) { o.y = p.y - o.h; o.onGround = true; o.vy = 0; }
+        else if (o.vy < 0) { o.y = p.y + p.h; o.vy = 0; }
+      }
+    } else if (p.kind === 'plat') {
+      // One-way platform: only collide if falling and previous bottom was above platform top
+      if (o.vy >= 0) {
+        const prevBottom = o.y + o.h - o.vy * (dtUsed || 1);
+        if (prevBottom <= p.y + 1 && o.y + o.h >= p.y && o.y + o.h <= p.y + p.h &&
+            o.x + o.w > p.x && o.x < p.x + p.w) {
+          o.y = p.y - o.h;
+          o.vy = 0;
+          o.onGround = true;
+        }
+      }
+    } else if (p.kind === 'ground') {
+      if (rectOverlap(o.x, o.y, o.w, o.h, p.x, p.y, p.w, p.h)) {
+        if (o.vy >= 0) {
+          o.y = p.y - o.h;
+          o.vy = 0;
+          o.onGround = true;
+        } else {
+          o.y = p.y + p.h;
+          o.vy = 0;
+        }
+      }
+    }
+  }
+}
+
+function fireBubble() {
+  if (window.LS && LS.sfx) LS.sfx.play('fart');
+  const dir = player.facing;
+  bubbles.push({
+    x: player.x + (dir > 0 ? player.w : -10),
+    y: player.y + 6,
+    w: 26, h: 26,
+    vx: dir * BUBBLE_DRIFT,
+    vy: 0,
+    born: performance.now(),
+    floating: false,
+    trapped: false,
+    enemy: null
+  });
+}
+
+// ---------- Bubbles ----------
+function updateBubbles(dt) {
+  const now = performance.now();
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const b = bubbles[i];
+    const age = now - b.born;
+
+    if (!b.floating && age > BUBBLE_FLOAT_DELAY) {
+      b.floating = true;
+      b.vx *= 0.4;
+      b.vy = -1.2;
+    }
+
+    if (b.floating) {
+      b.vy = -1.2 - Math.sin(now / 300 + b.x) * 0.2;
+      b.vx *= 0.96;
+    }
+
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+
+    // Wall bounce
+    if (b.x < 18) { b.x = 18; b.vx = Math.abs(b.vx); }
+    if (b.x + b.w > W - 18) { b.x = W - 18 - b.w; b.vx = -Math.abs(b.vx); }
+
+    // Top: pop on ceiling
+    if (b.y < 6) {
+      popBubble(b, false);
+      bubbles.splice(i, 1);
+      continue;
+    }
+
+    // Bubble collides with platform top? Floaty bubbles can sit underneath / pass.
+    // For simplicity, bubbles drift through platforms (they're floaty soap).
+
+    // If carrying enemy, sync enemy to bubble
+    if (b.trapped && b.enemy) {
+      b.enemy.x = b.x + (b.w - b.enemy.w) / 2;
+      b.enemy.y = b.y + (b.h - b.enemy.h) / 2;
+      // Trap timer expired -> release enemy angry
+      if (now - b.trapStart > TRAP_DURATION) {
+        b.enemy.trapped = false;
+        // small angry bump
+        b.enemy.vx = (Math.random() < 0.5 ? -1 : 1) * 1.8;
+        b.enemy.vy = -3;
+        bubbles.splice(i, 1);
+        continue;
+      }
+    }
+
+    // Trap enemies (only if not already trapped)
+    if (!b.trapped) {
+      for (const e of enemies) {
+        if (e.trapped) continue;
+        if (rectOverlap(b.x, b.y, b.w, b.h, e.x, e.y, e.w, e.h)) {
+          b.trapped = true;
+          b.enemy = e;
+          b.trapStart = now;
+          // bubble starts floating up immediately
+          b.floating = true;
+          b.vx = 0;
+          b.vy = -1.0;
+          e.trapped = true;
+          e.bubble = b;
+          break;
+        }
+      }
+    }
+
+    // Player can pop bubble by jumping onto it (lands on top)
+    if (player.alive) {
+      // Check if player overlaps bubble
+      if (rectOverlap(player.x, player.y, player.w, player.h, b.x, b.y, b.w, b.h)) {
+        // landing on top? require player vy >= 0 and feet near top of bubble
+        const playerBottom = player.y + player.h;
+        if (player.vy >= -1 && playerBottom <= b.y + b.h * 0.6 + 2) {
+          // pop it
+          if (b.trapped && b.enemy) {
+            killEnemy(b.enemy, b.x + b.w/2, b.y + b.h/2);
+          }
+          popBubble(b, true);
+          // bounce player a bit
+          player.vy = JUMP_VY * 0.7;
+          bubbles.splice(i, 1);
+          continue;
+        }
+      }
+    }
+
+    // Lifetime
+    if (age > BUBBLE_LIFETIME) {
+      // If trapped, release enemy (angry)
+      if (b.trapped && b.enemy) {
+        b.enemy.trapped = false;
+        b.enemy.bubble = null;
+      }
+      popBubble(b, false);
+      bubbles.splice(i, 1);
+    }
+  }
+}
+
+function popBubble(b, popped) {
+  spawnParticles(b.x + b.w/2, b.y + b.h/2, '#cfeaff', popped ? 10 : 5, 3);
+}
+
+// ---------- Enemies ----------
+function updateEnemies(dt) {
+  const platsForRat = platforms.filter(p => p.kind === 'plat' || p.kind === 'ground');
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (e.trapped) continue; // moved by bubble
+
+    if (e.type === 'fly') {
+      e.t += dt * 0.05;
+      e.x += e.vx * dt;
+      e.y += Math.sin(e.t * 3) * 0.7;
+      // bounce off walls
+      if (e.x < 22) { e.x = 22; e.vx = Math.abs(e.vx); }
+      if (e.x + e.w > W - 22) { e.x = W - 22 - e.w; e.vx = -Math.abs(e.vx); }
+      // wraparound vertical
+      if (e.y > H + 10) e.y = -e.h;
+      if (e.y < -e.h - 5) e.y = H + 5;
+    } else if (e.type === 'rat') {
+      // gravity
+      e.vy += GRAVITY * dt;
+      if (e.vy > 14) e.vy = 14;
+      e.x += e.vx * dt;
+      // horizontal walls
+      if (e.x < 22) { e.x = 22; e.vx = Math.abs(e.vx); }
+      if (e.x + e.w > W - 22) { e.x = W - 22 - e.w; e.vx = -Math.abs(e.vx); }
+      // vertical
+      e.y += e.vy * dt;
+      e.onGround = false;
+      for (const p of platsForRat) {
+        if (e.vy >= 0) {
+          const prevBottom = e.y + e.h - e.vy * dt;
+          if (prevBottom <= p.y + 1 && e.y + e.h >= p.y && e.y + e.h <= p.y + p.h &&
+              e.x + e.w > p.x && e.x < p.x + p.w) {
+            e.y = p.y - e.h;
+            e.vy = 0;
+            e.onGround = true;
+          }
+        }
+      }
+      // platform edge detection: if walking off edge, turn around (only on platforms, not ground)
+      if (e.onGround) {
+        // peek ahead at feet
+        const peekX = e.x + (e.vx > 0 ? e.w + 4 : -4);
+        const peekY = e.y + e.h + 2;
+        let supported = false;
+        for (const p of platsForRat) {
+          if (peekX >= p.x && peekX <= p.x + p.w && peekY >= p.y - 2 && peekY <= p.y + p.h) {
+            supported = true; break;
+          }
+        }
+        if (!supported) e.vx = -e.vx;
+      }
+      // wraparound bottom
+      if (e.y > H + 20) {
+        e.y = -e.h;
+        e.vy = 2;
+      }
+    }
+  }
+}
+
+function killEnemy(enemy, x, y) {
+  // remove enemy
+  const idx = enemies.indexOf(enemy);
+  if (idx !== -1) enemies.splice(idx, 1);
+  if (window.LS && LS.sfx) LS.sfx.play('flush');
+  spawnParticles(x, y, '#ffe066', 14, 5);
+  // Drop a treat
+  const roll = Math.random();
+  let kind, value;
+  if (roll < 0.05) { kind = '💎'; value = 1000; }
+  else if (roll < 0.30) { kind = '🌭'; value = 300; }
+  else if (roll < 0.60) { kind = '🍎'; value = 200; }
+  else { kind = '🍌'; value = 100; }
+  treats.push({
+    x: x - 14,
+    y: y - 14,
+    w: 28, h: 28,
+    vy: 0,
+    born: performance.now(),
+    kind, value
+  });
+  addFloater(x, y - 18, '+50', '#fff9e6'); // small bonus for kill
+  score += 50;
+  scoreEl.textContent = score;
+
+  // Level clear?
+  if (enemies.length === 0 && !levelTransitioning) {
+    levelTransitioning = true;
+    if (window.LS && LS.sfx) LS.sfx.play('levelup');
+    levelsCleared++;
+    score += 500; // level clear bonus
+    scoreEl.textContent = score;
+    addFloater(W/2, H/2, '+500 LEVEL CLEAR!', '#ffd23f');
+    setTimeout(() => {
+      if (running) startLevel(level + 1);
+    }, 1400);
+  }
+}
+
+// ---------- Treats ----------
+function updateTreats(dt) {
+  const now = performance.now();
+  for (let i = treats.length - 1; i >= 0; i--) {
+    const t = treats[i];
+    t.vy += GRAVITY * 0.6 * dt;
+    if (t.vy > 8) t.vy = 8;
+    t.y += t.vy * dt;
+    // collide with platforms (simple, top only)
+    for (const p of platforms) {
+      if (p.kind === 'plat' || p.kind === 'ground') {
+        if (t.vy >= 0) {
+          const prevBottom = t.y + t.h - t.vy * dt;
+          if (prevBottom <= p.y + 1 && t.y + t.h >= p.y && t.y + t.h <= p.y + p.h &&
+              t.x + t.w > p.x && t.x < p.x + p.w) {
+            t.y = p.y - t.h;
+            t.vy = 0;
+          }
+        }
+      }
+    }
+    // wraparound
+    if (t.y > H + 30) { t.y = -t.h; t.vy = 0; }
+
+    // pickup
+    if (player.alive && rectOverlap(player.x, player.y, player.w, player.h, t.x, t.y, t.w, t.h)) {
+      score += t.value;
+      scoreEl.textContent = score;
+      if (window.LS && LS.sfx) LS.sfx.play('coin');
+      addFloater(t.x + t.w/2, t.y, '+' + t.value, t.kind === '💎' ? '#69e6ff' : '#ffd23f');
+      spawnParticles(t.x + t.w/2, t.y + t.h/2, '#fff9e6', 8, 3);
+      treats.splice(i, 1);
+      continue;
+    }
+
+    // expire
+    if (now - t.born > 5000) treats.splice(i, 1);
+  }
+}
+
+// ---------- Particles / floaters ----------
+function updateParticles(dt) {
+  for (const p of particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 0.25 * dt;
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  for (const f of floaters) {
+    f.y -= 0.6 * dt;
+    f.life -= dt;
+  }
+  floaters = floaters.filter(f => f.life > 0);
+}
+
+// ---------- Lose life ----------
+function loseLife() {
+  livesLost++;
+  lives--;
+  if (window.LS && LS.sfx) LS.sfx.play('splat');
+  spawnParticles(player.x + player.w/2, player.y + player.h/2, '#8a4a18', 16, 6);
+  updateLivesHUD();
+  if (lives <= 0) {
+    gameOver();
+    return;
+  }
+  // brief invincibility
+  player.invincibleUntil = performance.now() + 1500;
+  // Reset to top spawn
+  player.x = Math.max(40, Math.min(W - 60, W * 0.5 - player.w / 2));
+  player.y = -player.h;
+  player.vx = 0;
+  player.vy = 0;
+}
+
+function updateLivesHUD() {
+  livesEl.textContent = '❤️'.repeat(Math.max(0, lives));
+}
+
+// ---------- Drawing ----------
+function drawBackground() {
+  // dark sewer gradient
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1a0833');
+  g.addColorStop(0.55, '#2a1442');
+  g.addColorStop(1, '#3b2509');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // subtle drips / bubbles in background
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  const t = performance.now() / 1000;
+  for (let i = 0; i < 12; i++) {
+    const bx = ((i * 137 + t * 30) % W);
+    const by = ((i * 89 + t * 20) % H);
+    ctx.beginPath();
+    ctx.arc(bx, by, 6 + (i % 3) * 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawPlatform(p) {
+  if (p.kind === 'wall') {
+    // brick wall
+    ctx.fillStyle = '#3b2509';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.strokeStyle = '#1a0a02';
+    ctx.lineWidth = 1;
+    for (let by = 0; by < p.h; by += 14) {
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y + by);
+      ctx.lineTo(p.x + p.w, p.y + by);
+      ctx.stroke();
+    }
+    return;
+  }
+  // brick brown texture
+  const grad = ctx.createLinearGradient(0, p.y, 0, p.y + p.h);
+  grad.addColorStop(0, '#8b5a3b');
+  grad.addColorStop(1, '#5a3018');
+  ctx.fillStyle = grad;
+  ctx.fillRect(p.x, p.y, p.w, p.h);
+  // top highlight
+  ctx.fillStyle = 'rgba(255, 220, 160, 0.45)';
+  ctx.fillRect(p.x, p.y, p.w, 3);
+  // brick lines
+  ctx.strokeStyle = 'rgba(40,20,8,0.55)';
+  ctx.lineWidth = 1;
+  const brickW = 28;
+  const rows = Math.max(1, Math.floor(p.h / 12));
+  for (let r = 0; r < rows; r++) {
+    const yy = p.y + 4 + r * 12;
+    if (yy > p.y + p.h - 1) break;
+    ctx.beginPath();
+    ctx.moveTo(p.x, yy);
+    ctx.lineTo(p.x + p.w, yy);
+    ctx.stroke();
+    const offset = (r % 2 === 0) ? 0 : brickW / 2;
+    for (let x = p.x + offset; x < p.x + p.w; x += brickW) {
+      ctx.beginPath();
+      ctx.moveTo(x, yy);
+      ctx.lineTo(x, yy + 12);
+      ctx.stroke();
+    }
+  }
+  // bottom shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(p.x, p.y + p.h - 2, p.w, 2);
+}
+
+function drawPlatforms() {
+  for (const p of platforms) drawPlatform(p);
+}
+
+function drawPlayer() {
+  // invincibility flash
+  if (performance.now() < player.invincibleUntil) {
+    const blink = Math.floor(performance.now() / 100) % 2;
+    if (blink) return;
+  }
+  ctx.save();
+  ctx.translate(player.x + player.w/2, player.y + player.h/2);
+  // mirror facing
+  if (player.facing < 0) ctx.scale(-1, 1);
+  ctx.font = '34px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText('💩', 0, 2);
+  ctx.restore();
+}
+
+function drawEnemy(e) {
+  ctx.save();
+  ctx.translate(e.x + e.w/2, e.y + e.h/2);
+  if (e.vx < 0) ctx.scale(-1, 1);
+  ctx.font = (e.type === 'fly' ? 28 : 30) + 'px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 3;
+  ctx.fillText(e.type === 'fly' ? '🪰' : '🐀', 0, 2);
+  ctx.restore();
+}
+
+function drawBubble(b) {
+  const cx = b.x + b.w/2, cy = b.y + b.h/2;
+  const r = b.w/2;
+  // outer translucent fill
+  const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, 1, cx, cy, r);
+  grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+  grad.addColorStop(0.4, 'rgba(180,220,255,0.45)');
+  grad.addColorStop(1, 'rgba(140,180,255,0.18)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  // iridescent ring
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+  // shimmer highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.ellipse(cx - r*0.35, cy - r*0.35, r*0.2, r*0.12, -0.6, 0, Math.PI*2);
+  ctx.fill();
+
+  // trapped enemy inside
+  if (b.trapped && b.enemy) {
+    ctx.save();
+    ctx.font = '22px ' + EMOJI_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.95;
+    ctx.fillText(b.enemy.type === 'fly' ? '🪰' : '🐀', cx, cy + 2);
+    ctx.restore();
+  }
+}
+
+function drawTreat(t) {
+  ctx.save();
+  ctx.font = '24px ' + EMOJI_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = t.kind === '💎' ? 'rgba(105,230,255,0.9)' : 'rgba(255,210,63,0.7)';
+  ctx.shadowBlur = t.kind === '💎' ? 14 : 6;
+  const bob = Math.sin(performance.now()/200 + t.x) * 1.5;
+  ctx.fillText(t.kind, t.x + t.w/2, t.y + t.h/2 + bob);
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillRect(p.x, p.y, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+  // floaters (text)
+  for (const f of floaters) {
+    ctx.font = 'bold 18px "Bungee", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = f.color;
+    ctx.globalAlpha = Math.max(0, f.life / 60);
+    ctx.shadowColor = '#3b2509';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawPlatforms();
+  for (const t of treats) drawTreat(t);
+  for (const e of enemies) {
+    // skip drawing trapped (drawn inside bubble)
+    if (e.trapped) continue;
+    drawEnemy(e);
+  }
+  for (const b of bubbles) drawBubble(b);
+  if (player.alive) drawPlayer();
+  drawParticles();
+}
+
+// ---------- Main loop ----------
+let lastT = performance.now();
+function frame(t) {
+  const dt = Math.min(2.2, (t - lastT) / 16.66);
+  lastT = t;
+  if (running) {
+    updatePlayer(dt);
+    updateBubbles(dt);
+    updateEnemies(dt);
+    updateTreats(dt);
+    updateParticles(dt);
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------- Game lifecycle ----------
+function start() {
+  score = 0;
+  lives = 3;
+  level = 1;
+  levelsCleared = 0;
+  livesLost = 0;
+  scoreEl.textContent = 0;
+  levelEl.textContent = 1;
+  updateLivesHUD();
+  running = true;
+  startOverlay.classList.add('hidden');
+  gameOverOverlay.classList.add('hidden');
+  newBestEl.classList.add('hidden');
+  document.body.classList.add('playing');
+  startLevel(1);
+}
+
+function gameOver() {
+  running = false;
+  player.alive = false;
+  if (window.LS && LS.sfx) LS.sfx.play('gameover');
+  finalEl.textContent = score;
+  finalLevelEl.textContent = level;
+
+  let isNew = false;
+  // LS doesn't have 'bobble' in HIGH_KEYS, so reportGameEnd won't update high; we manage locally.
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('bobble_highscore', String(highScore));
+    isNew = true;
+  }
+  highEl.textContent = highScore;
+
+  const result = window.LS ? LS.reportGameEnd({
+    gameKey: 'bobble',
+    score,
+    extra: { levelsCleared, livesLost }
+  }) : null;
+  if (result && result.dailyCompleted && window.LS && LS.toast) {
+    LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 });
+  }
+
+  document.body.classList.remove('playing');
+  setTimeout(() => {
+    if (isNew) newBestEl.classList.remove('hidden');
+    gameOverOverlay.classList.remove('hidden');
+  }, 500);
+}
+
+document.getElementById('start-btn').onclick = start;
+document.getElementById('restart-btn').onclick = start;
+
+// Mount mute button
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.LS && LS.mountMuteButton) LS.mountMuteButton();
+});
+if (document.readyState !== 'loading' && window.LS && window.LS.mountMuteButton) {
+  window.LS.mountMuteButton();
+}
+</script>
+</body>
+</html>

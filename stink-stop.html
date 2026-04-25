@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Stink-Stop</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lortespil.css">
+<script src="lortespil.js" defer></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Fredoka', sans-serif; background: #f0ede0; }
+  body {
+    touch-action: manipulation;
+    position: fixed;
+    width: 100%;
+    background: #f0ede0;
+    /* subtle porcelain tile pattern */
+    background-image:
+      linear-gradient(45deg, rgba(180,170,140,0.10) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(180,170,140,0.10) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(180,170,140,0.10) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(180,170,140,0.10) 75%);
+    background-size: 36px 36px;
+    background-position: 0 0, 0 18px, 18px -18px, -18px 0;
+  }
+  #game { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    top: max(10px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-card {
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 12px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 16px;
+    color: #3b2509;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1;
+  }
+  .lives-card { color: #c63a3a; }
+  .streak-card { background: #fff0c8; }
+  #stink-wrap {
+    flex: 1 1 100%;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 4px;
+    box-shadow: 3px 3px 0 #3b2509;
+    height: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  #stink-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #b9d96e 0%, #d2c34a 40%, #c47a3a 70%, #6f3f2a 100%);
+    border-radius: 4px;
+    transition: width 0.18s ease-out;
+  }
+  #stink-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Bungee', sans-serif;
+    font-size: 11px;
+    color: #3b2509;
+    text-shadow: 0 0 3px #fff9e6, 0 0 3px #fff9e6;
+    pointer-events: none;
+  }
+
+  /* Back button (matches kloak-racer pattern) */
+  .back-btn {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+    background: #fff9e6;
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 5px 12px;
+    font-family: 'Bungee', sans-serif;
+    font-size: 12px;
+    color: #3b2509;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 #3b2509;
+    display: none;
+  }
+  body:not(.playing) .back-btn { display: block; }
+
+  /* Hole grid */
+  #board-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 110px 10px 30px;
+  }
+  .hole-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: clamp(8px, 2vw, 18px);
+    width: min(94vw, 460px);
+    height: min(70vh, 520px);
+  }
+  .hole {
+    position: relative;
+    background: radial-gradient(ellipse at 50% 35%, #4a3a28 0%, #2a1a10 55%, #100600 100%);
+    border: 4px solid #3b2509;
+    border-radius: 50%;
+    box-shadow:
+      inset 0 -8px 14px rgba(0,0,0,0.55),
+      inset 0 6px 10px rgba(255,255,255,0.06),
+      4px 4px 0 #3b2509;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.06s ease-out;
+  }
+  .hole:active { transform: translate(2px, 2px); }
+  .hole.flash-bad {
+    animation: flashBad 0.35s ease-out;
+  }
+  .hole.flash-good {
+    animation: flashGood 0.35s ease-out;
+  }
+  @keyframes flashBad {
+    0%   { box-shadow: inset 0 0 0 200px rgba(220,40,40,0.85), 4px 4px 0 #3b2509; }
+    100% { box-shadow:
+            inset 0 -8px 14px rgba(0,0,0,0.55),
+            inset 0 6px 10px rgba(255,255,255,0.06),
+            4px 4px 0 #3b2509; }
+  }
+  @keyframes flashGood {
+    0%   { box-shadow: inset 0 0 0 200px rgba(120,220,120,0.7), 4px 4px 0 #3b2509; }
+    100% { box-shadow:
+            inset 0 -8px 14px rgba(0,0,0,0.55),
+            inset 0 6px 10px rgba(255,255,255,0.06),
+            4px 4px 0 #3b2509; }
+  }
+
+  /* Toilet at bottom of each hole */
+  .toilet {
+    position: absolute;
+    bottom: 4%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(28px, 7vw, 46px);
+    pointer-events: none;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    z-index: 1;
+    opacity: 0.85;
+  }
+
+  /* Pop-up emoji */
+  .popup {
+    position: absolute;
+    bottom: 18%;
+    left: 50%;
+    font-size: clamp(40px, 10vw, 64px);
+    pointer-events: none;
+    transform: translate(-50%, 100%);
+    opacity: 0;
+    z-index: 3;
+    filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.4));
+    will-change: transform, opacity;
+    transition: none;
+  }
+  .popup.show {
+    animation: popUp var(--life, 1000ms) ease-out forwards;
+  }
+  @keyframes popUp {
+    0%   { transform: translate(-50%, 100%) scale(0.6); opacity: 0; }
+    18%  { transform: translate(-50%, -30px) scale(1.05); opacity: 1; }
+    78%  { transform: translate(-50%, -30px) scale(1.0); opacity: 1; }
+    100% { transform: translate(-50%, 100%) scale(0.6); opacity: 0; }
+  }
+  /* Fly takes a small arc */
+  .popup.fly.show {
+    animation: popUpFly var(--life, 800ms) ease-in-out forwards;
+  }
+  @keyframes popUpFly {
+    0%   { transform: translate(-50%, 100%) scale(0.6) rotate(-15deg); opacity: 0; }
+    20%  { transform: translate(-90%, -40px) scale(1) rotate(-15deg); opacity: 1; }
+    50%  { transform: translate(-10%, -55px) scale(1.05) rotate(15deg); opacity: 1; }
+    80%  { transform: translate(-90%, -30px) scale(1) rotate(-10deg); opacity: 1; }
+    100% { transform: translate(-50%, 100%) scale(0.6) rotate(0); opacity: 0; }
+  }
+
+  /* Floating score text */
+  .float-score {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    transform: translate(-50%, 0);
+    font-family: 'Bungee', sans-serif;
+    font-size: 22px;
+    pointer-events: none;
+    z-index: 20;
+    animation: floatUp 0.9s ease-out forwards;
+    text-shadow: 2px 2px 0 #3b2509;
+  }
+  .float-score.gold { color: #ffd23f; }
+  .float-score.red  { color: #ff4e6b; }
+  .float-score.heart { color: #ff4e6b; font-size: 32px; }
+  @keyframes floatUp {
+    0%   { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+    20%  { transform: translate(-50%, -10px) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -70px) scale(1); opacity: 0; }
+  }
+
+  /* Splash particles */
+  .splash {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 18;
+    will-change: transform, opacity;
+  }
+
+  /* Overlays */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0,0,0,0.55), rgba(0,0,0,0.9));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+  .overlay h1 {
+    font-family: 'Bungee', sans-serif;
+    font-size: clamp(40px, 11vw, 68px);
+    color: #ffd23f;
+    text-shadow: 4px 4px 0 #3b2509, 8px 8px 0 rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+    transform: rotate(-3deg);
+    line-height: 0.95;
+  }
+  .overlay p {
+    color: #fff9e6;
+    font-size: 17px;
+    margin-bottom: 22px;
+    max-width: 420px;
+    line-height: 1.5;
+  }
+  .legend {
+    color: #fff9e6;
+    font-size: 14px;
+    margin-bottom: 18px;
+    line-height: 1.7;
+    background: rgba(0,0,0,0.35);
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 2px solid #ffd23f;
+  }
+  .btn {
+    background: #ffd23f;
+    border: 5px solid #3b2509;
+    color: #3b2509;
+    font-family: 'Bungee', sans-serif;
+    font-size: 24px;
+    padding: 12px 32px;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #3b2509;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 1px;
+  }
+  .btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 #3b2509; }
+  .hidden { display: none !important; }
+  .new-best {
+    display: inline-block;
+    background: #ff4e6b;
+    color: #fff9e6;
+    font-family: 'Bungee', sans-serif;
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 3px solid #3b2509;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+    font-size: 16px;
+    box-shadow: 3px 3px 0 #3b2509;
+  }
+  .controls-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,249,230,0.9);
+    border: 3px solid #3b2509;
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 14px;
+    color: #3b2509;
+    font-weight: 600;
+    z-index: 10;
+    transition: opacity 0.6s;
+  }
+
+  /* Screen shake on life loss */
+  #game.shake { animation: screenShake 0.25s ease-in-out; }
+  @keyframes screenShake {
+    0%, 100% { transform: translate(0,0); }
+    25%      { transform: translate(-6px, 4px); }
+    50%      { transform: translate(6px, -4px); }
+    75%      { transform: translate(-3px, -3px); }
+  }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-btn">← Portal</a>
+<div id="game">
+  <div id="hud">
+    <div class="hud-row">
+      <div class="score-card lives-card">❤️ <span id="lives">3</span></div>
+      <div class="score-card">💩 <span id="score">0</span></div>
+      <div class="score-card streak-card">🔥 <span id="streak">0</span></div>
+      <div class="score-card">🏆 <span id="high">0</span></div>
+    </div>
+    <div class="hud-row">
+      <div id="stink-wrap">
+        <div id="stink-bar"></div>
+        <div id="stink-label">STINK</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="board-wrap">
+    <div class="hole-grid" id="grid">
+      <!-- 9 holes generated by JS for cleaner markup; static fallback below -->
+      <div class="hole" data-i="0"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="1"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="2"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="3"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="4"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="5"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="6"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="7"><div class="popup"></div><div class="toilet">🚽</div></div>
+      <div class="hole" data-i="8"><div class="popup"></div><div class="toilet">🚽</div></div>
+    </div>
+  </div>
+
+  <div class="controls-hint" id="hint">👆 TAP lortene 💩 · undgå rotter 🐀 og blomster 🌸</div>
+
+  <div id="start-overlay" class="overlay">
+    <h1>STINK<br>STOP</h1>
+    <p>Skyl alle lorte før kloakken stinker!<br>Tap 💩 = points · undgå 🐀 og 🌸 · fang 🪰 før de slipper væk!</p>
+    <div class="legend">
+      💩 +10 &nbsp;·&nbsp; 🪰 +20 &nbsp;·&nbsp; 🐀 -5 &nbsp;·&nbsp; 🌸 -1 ❤️<br>
+      🔥 streak: hver 10 = +50 bonus
+    </div>
+    <button class="btn" id="start-btn">START!</button>
+  </div>
+
+  <div id="game-over-overlay" class="overlay hidden">
+    <div style="font-size:80px;margin-bottom:6px;animation:spin 0.8s;" id="go-emoji">💩</div>
+    <h1>SLUT!</h1>
+    <p id="go-text">Du fik <b><span id="final-score">0</span> point</b><br>Bedste streak: <b><span id="final-streak">0</span> 🔥</b></p>
+    <div id="new-best" class="new-best hidden">🎉 Ny rekord!</div>
+    <button class="btn" id="restart-btn">PRØV IGEN</button>
+  </div>
+</div>
+<style>
+  @keyframes spin { from { transform: rotate(0) scale(0); } to { transform: rotate(540deg) scale(1); } }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Config ----------
+  const HOLE_COUNT = 9;
+  const SPAWN_START_MS = 1200;     // initial spawn interval
+  const SPAWN_MIN_MS   = 350;      // floor spawn interval
+  const SPAWN_DECAY_MS = 28;       // ms shaved off every spawn (capped at SPAWN_MIN_MS)
+  const LIFE_START_MS  = 1100;     // initial pop-up lifetime
+  const LIFE_MIN_MS    = 600;      // floor pop-up lifetime
+  const LIFE_DECAY_MS  = 12;       // ms shaved per spawn
+
+  const STINK_PASSIVE_PER_SEC = 1.2;   // % per second background fill
+  const STINK_FLY_MISS_FILL   = 5;     // % per missed fly
+  const STINK_DRAIN_PER_HIT   = 1;     // % drained per 💩 hit
+  const STINK_MAX             = 100;
+
+  const STREAK_BONUS_INTERVAL = 10;
+  const STREAK_BONUS_POINTS   = 50;
+
+  const STORAGE_KEY = 'stink_highscore';
+
+  // ---------- DOM ----------
+  const grid       = document.getElementById('grid');
+  const livesEl    = document.getElementById('lives');
+  const scoreEl    = document.getElementById('score');
+  const streakEl   = document.getElementById('streak');
+  const highEl     = document.getElementById('high');
+  const stinkBar   = document.getElementById('stink-bar');
+  const startOver  = document.getElementById('start-overlay');
+  const goOver     = document.getElementById('game-over-overlay');
+  const finalScoreEl  = document.getElementById('final-score');
+  const finalStreakEl = document.getElementById('final-streak');
+  const newBestEl  = document.getElementById('new-best');
+  const goEmoji    = document.getElementById('go-emoji');
+  const hint       = document.getElementById('hint');
+
+  const holes = Array.from(grid.querySelectorAll('.hole'));
+  const popups = holes.map(h => h.querySelector('.popup'));
+
+  // ---------- State ----------
+  let running = false;
+  let score = 0;
+  let lives = 3;
+  let streak = 0;
+  let bestStreak = 0;
+  let hits = 0;
+  let misses = 0;
+  let stink = 0;
+  let highScore = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+  highEl.textContent = highScore;
+
+  let spawnInterval = SPAWN_START_MS;
+  let popupLife = LIFE_START_MS;
+  let nextSpawnAt = 0;
+  let lastTickAt  = 0;
+  let startedAt   = 0;
+  let rafId       = null;
+
+  // each hole: { busy: bool, type: string|null, timer: number|null, scoredOrMissed: bool, popup: el }
+  const holeState = holes.map((h, i) => ({
+    el: h, popup: popups[i], busy: false, type: null, timer: null, scoredOrMissed: false
+  }));
+
+  // ---------- Utility ----------
+  function lsSafePlay(name) {
+    try { if (window.LS && LS.sfx && LS.sfx.play) LS.sfx.play(name); } catch (e) {}
+  }
+  function setStink(v) {
+    stink = Math.max(0, Math.min(STINK_MAX, v));
+    stinkBar.style.width = stink + '%';
+  }
+  function updateHud() {
+    scoreEl.textContent  = score;
+    livesEl.textContent  = lives;
+    streakEl.textContent = streak;
+  }
+  function pickType() {
+    const r = Math.random();
+    if (r < 0.70) return 'lort';
+    if (r < 0.85) return 'rotte';
+    if (r < 0.95) return 'flue';
+    return 'blomst';
+  }
+  function emojiFor(type) {
+    return type === 'lort'   ? '💩'
+         : type === 'rotte'  ? '🐀'
+         : type === 'flue'   ? '🪰'
+         :                     '🌸';
+  }
+  function pickEmptyHoleIndex() {
+    const empty = [];
+    for (let i = 0; i < HOLE_COUNT; i++) if (!holeState[i].busy) empty.push(i);
+    if (empty.length === 0) return -1;
+    return empty[(Math.random() * empty.length) | 0];
+  }
+
+  // ---------- Spawning ----------
+  function spawnAt(idx, type) {
+    const st = holeState[idx];
+    if (st.busy) return;
+    st.busy = true;
+    st.type = type;
+    st.scoredOrMissed = false;
+
+    const pop = st.popup;
+    pop.textContent = emojiFor(type);
+    pop.classList.remove('show', 'fly');
+    if (type === 'flue') pop.classList.add('fly');
+    // Force reflow so animation re-triggers reliably
+    void pop.offsetWidth;
+    pop.style.setProperty('--life', popupLife + 'ms');
+    pop.classList.add('show');
+
+    // Schedule retraction (miss-handler if not tapped)
+    st.timer = setTimeout(() => {
+      retractHole(idx, /*tapped*/false);
+    }, popupLife);
+  }
+
+  function retractHole(idx, tapped) {
+    const st = holeState[idx];
+    if (!st.busy) return;
+    if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+
+    const wasType = st.type;
+    if (!st.scoredOrMissed && !tapped) {
+      // Missed (timer expired without tap)
+      handleMiss(idx, wasType);
+      st.scoredOrMissed = true;
+    }
+
+    st.popup.classList.remove('show', 'fly');
+    st.popup.style.transform = '';
+    st.popup.style.opacity = '';
+    st.busy = false;
+    st.type = null;
+  }
+
+  function handleMiss(idx, type) {
+    if (type === 'flue') {
+      // Missed fly fills stink bar
+      setStink(stink + STINK_FLY_MISS_FILL);
+      checkStinkOverflow();
+      misses++;
+    }
+    // Other misses: nothing per spec (lort miss = nothing, rotte miss = nothing, blomst miss = nothing)
+  }
+
+  // ---------- Tapping ----------
+  function tapHole(idx) {
+    if (!running) return;
+    const st = holeState[idx];
+    if (!st.busy || st.scoredOrMissed) return;
+    st.scoredOrMissed = true;
+    const type = st.type;
+    const holeEl = st.el;
+
+    if (type === 'lort') {
+      score += 10;
+      hits++;
+      streak += 1;
+      if (streak > bestStreak) bestStreak = streak;
+      setStink(stink - STINK_DRAIN_PER_HIT);
+      lsSafePlay('flush');
+      flashHole(holeEl, 'flash-good');
+      floatText(holeEl, '+10', 'gold');
+      splash(holeEl, '#ffd23f');
+      // Streak bonus
+      if (streak > 0 && streak % STREAK_BONUS_INTERVAL === 0) {
+        score += STREAK_BONUS_POINTS;
+        floatText(holeEl, '🔥 +' + STREAK_BONUS_POINTS, 'gold');
+        lsSafePlay('levelup');
+      }
+    } else if (type === 'rotte') {
+      score = Math.max(0, score - 5);
+      streak = 0;
+      lsSafePlay('splat');
+      flashHole(holeEl, 'flash-bad');
+      floatText(holeEl, '-5', 'red');
+      splash(holeEl, '#9a4a2a');
+    } else if (type === 'flue') {
+      score += 20;
+      hits++;
+      streak += 1;
+      if (streak > bestStreak) bestStreak = streak;
+      lsSafePlay('zap');
+      lsSafePlay('coin');
+      flashHole(holeEl, 'flash-good');
+      floatText(holeEl, '+20', 'gold');
+      splash(holeEl, '#7dc6ff');
+      if (streak > 0 && streak % STREAK_BONUS_INTERVAL === 0) {
+        score += STREAK_BONUS_POINTS;
+        floatText(holeEl, '🔥 +' + STREAK_BONUS_POINTS, 'gold');
+        lsSafePlay('levelup');
+      }
+    } else if (type === 'blomst') {
+      streak = 0;
+      lsSafePlay('gameover');
+      flashHole(holeEl, 'flash-bad');
+      floatText(holeEl, '💔', 'heart');
+      splash(holeEl, '#ff8eb8');
+      loseLife('Du skyllede en blomst! Respektløst!');
+    }
+
+    updateHud();
+    // Retract right away on tap
+    retractHole(idx, true);
+  }
+
+  // ---------- Lives ----------
+  function loseLife(reason) {
+    lives -= 1;
+    livesEl.textContent = lives;
+    lsSafePlay('splat');
+    shakeScreen();
+    if (lives <= 0) gameOver();
+  }
+  function checkStinkOverflow() {
+    if (stink >= STINK_MAX) {
+      setStink(0);
+      loseLife('Kloakken stinker!');
+    }
+  }
+
+  // ---------- Visual feedback ----------
+  function flashHole(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), 380);
+  }
+  function floatText(el, text, kind) {
+    const f = document.createElement('div');
+    f.className = 'float-score ' + (kind || '');
+    f.textContent = text;
+    el.appendChild(f);
+    setTimeout(() => f.remove(), 950);
+  }
+  function splash(el, color) {
+    const cx = el.clientWidth / 2;
+    const cy = el.clientHeight * 0.4;
+    const N  = 8;
+    for (let i = 0; i < N; i++) {
+      const p = document.createElement('div');
+      p.className = 'splash';
+      p.style.background = color || '#ffd23f';
+      p.style.left = cx + 'px';
+      p.style.top  = cy + 'px';
+      const ang = (Math.PI * 2 * i) / N + Math.random() * 0.4;
+      const spd = 50 + Math.random() * 60;
+      const dx = Math.cos(ang) * spd;
+      const dy = Math.sin(ang) * spd - 20;
+      el.appendChild(p);
+      // animate via WAAPI for crispness
+      try {
+        p.animate(
+          [
+            { transform: 'translate(0, 0) scale(1)',           opacity: 1 },
+            { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(0.4)', opacity: 0 }
+          ],
+          { duration: 600 + Math.random() * 200, easing: 'ease-out' }
+        ).onfinish = () => p.remove();
+      } catch (e) {
+        // fallback: just remove
+        setTimeout(() => p.remove(), 700);
+      }
+    }
+  }
+  function shakeScreen() {
+    const g = document.getElementById('game');
+    g.classList.remove('shake');
+    void g.offsetWidth;
+    g.classList.add('shake');
+    setTimeout(() => g.classList.remove('shake'), 280);
+  }
+
+  // ---------- Main loop ----------
+  function tick(t) {
+    if (!running) return;
+    if (!lastTickAt) lastTickAt = t;
+    const dtMs = Math.min(64, t - lastTickAt);
+    lastTickAt = t;
+
+    // Difficulty curve based on elapsed time
+    const elapsed = (t - startedAt) / 1000; // seconds
+    // Spawn interval shrinks ~28ms per second; clamped
+    spawnInterval = Math.max(SPAWN_MIN_MS, SPAWN_START_MS - elapsed * SPAWN_DECAY_MS);
+    popupLife     = Math.max(LIFE_MIN_MS,  LIFE_START_MS - elapsed * LIFE_DECAY_MS);
+
+    // Passive stink growth
+    setStink(stink + (STINK_PASSIVE_PER_SEC * dtMs / 1000));
+    checkStinkOverflow();
+    if (!running) return;
+
+    // Spawn
+    if (t >= nextSpawnAt) {
+      const idx = pickEmptyHoleIndex();
+      if (idx !== -1) {
+        spawnAt(idx, pickType());
+      }
+      nextSpawnAt = t + spawnInterval;
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // ---------- Input ----------
+  function bindHole(idx) {
+    const h = holes[idx];
+    const handler = (ev) => {
+      ev.preventDefault();
+      tapHole(idx);
+    };
+    h.addEventListener('click', handler);
+    // We intentionally do not also bind touchstart; click works fine on touch
+    // and double-firing would tap a fresh popup that just appeared.
+  }
+  for (let i = 0; i < HOLE_COUNT; i++) bindHole(i);
+
+  // Optional keyboard: 1-9 = top-left .. bottom-right
+  document.addEventListener('keydown', (e) => {
+    if (!running) return;
+    const k = e.key;
+    if (k >= '1' && k <= '9') {
+      // Map number-pad style: 7/8/9 top, 4/5/6 mid, 1/2/3 bottom — but we'll also accept top-row 1-9
+      // Use straightforward mapping: '1' = idx 0 ... '9' = idx 8 (top-left to bottom-right reading order)
+      const idx = parseInt(k, 10) - 1;
+      tapHole(idx);
+    }
+  });
+
+  // ---------- Start / End ----------
+  function resetState() {
+    running = false;
+    score = 0; lives = 3; streak = 0; bestStreak = 0;
+    hits = 0; misses = 0;
+    stink = 0;
+    spawnInterval = SPAWN_START_MS;
+    popupLife = LIFE_START_MS;
+    setStink(0);
+    updateHud();
+    // clear all holes
+    for (let i = 0; i < HOLE_COUNT; i++) {
+      const st = holeState[i];
+      if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+      st.busy = false;
+      st.type = null;
+      st.scoredOrMissed = false;
+      st.popup.classList.remove('show', 'fly');
+    }
+  }
+
+  function start() {
+    resetState();
+    running = true;
+    document.body.classList.add('playing');
+    startOver.classList.add('hidden');
+    goOver.classList.add('hidden');
+    newBestEl.classList.add('hidden');
+    lastTickAt = 0;
+    startedAt = performance.now();
+    nextSpawnAt = startedAt + 600; // small grace before first spawn
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
+    setTimeout(() => { if (hint) hint.style.opacity = 0; }, 2800);
+  }
+
+  function gameOver() {
+    if (!running) return;
+    running = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
+    // Retract all popups
+    for (let i = 0; i < HOLE_COUNT; i++) {
+      const st = holeState[i];
+      if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+      if (st.busy) {
+        st.popup.classList.remove('show', 'fly');
+        st.busy = false;
+        st.type = null;
+      }
+    }
+
+    lsSafePlay('gameover');
+
+    finalScoreEl.textContent  = score;
+    finalStreakEl.textContent = bestStreak;
+
+    // Report to LS shared module if available
+    let isNew = false;
+    let result = null;
+    try {
+      result = (window.LS && LS.reportGameEnd) ? LS.reportGameEnd({
+        gameKey: 'stink',
+        score: score,
+        extra: { bestStreak: bestStreak, hits: hits, misses: misses }
+      }) : null;
+    } catch (e) { result = null; }
+
+    if (result) {
+      isNew = !!result.isNewHigh;
+      // LS's reportGameEnd uses its own HIGH_KEYS map; if 'stink' isn't registered there
+      // (older shared modules), it returns isNewHigh=false. Fall back to our own check.
+      if (result.dailyCompleted && window.LS && LS.toast) {
+        LS.toast('🎉 DAGENS LORT FULDFØRT! +' + (result.dailyBonus || 0) + ' 🪙', { duration: 2800 });
+      }
+    }
+    // Independent localStorage write under stink_highscore (always)
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem(STORAGE_KEY, String(highScore));
+      isNew = true;
+    }
+    highEl.textContent = highScore;
+
+    document.body.classList.remove('playing');
+    setTimeout(() => {
+      if (isNew) newBestEl.classList.remove('hidden');
+      goOver.classList.remove('hidden');
+    }, 450);
+  }
+
+  // ---------- Buttons & Mute ----------
+  document.getElementById('start-btn').onclick   = start;
+  document.getElementById('restart-btn').onclick = start;
+
+  function mountMute() {
+    if (window.LS && LS.mountMuteButton) {
+      try { LS.mountMuteButton(); } catch (e) {}
+    }
+  }
+  document.addEventListener('DOMContentLoaded', mountMute);
+  if (document.readyState !== 'loading') mountMute();
+
+  // Pause-on-hide so popups don't pile up while tab is backgrounded.
+  // Soft-pause only: cancel the RAF loop. Resumes automatically when tab regains
+  // focus (only if we're still mid-game and no overlay is showing).
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && running) {
+      running = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    } else if (!document.hidden && !running && lives > 0
+               && goOver.classList.contains('hidden')
+               && startOver.classList.contains('hidden')) {
+      // resume cleanly
+      running = true;
+      lastTickAt = 0;
+      // shift startedAt forward so difficulty curve doesn't jump while we were away
+      // (keep current difficulty by anchoring the curve to "now")
+      startedAt = performance.now() - ((spawnInterval !== SPAWN_START_MS)
+        ? ((SPAWN_START_MS - spawnInterval) / SPAWN_DECAY_MS) * 1000
+        : 0);
+      nextSpawnAt = performance.now() + 400;
+      rafId = requestAnimationFrame(tick);
+    }
+  });
+})();
+</script>
+</body>
+</html>
