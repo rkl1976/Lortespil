@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konfirmation – Fotograf Tjekskema</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f1ea;
+    color: #2a2a2a;
+    line-height: 1.5;
+    padding: 20px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: #8a7a68;
+    font-size: 14px;
+    margin-bottom: 28px;
+    font-style: italic;
+  }
+  section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    border-left: 4px solid #b89968;
+  }
+  section.timeline { border-left-color: #6b8e7a; }
+  section.settings { border-left-color: #8b6b8e; }
+  section.groups { border-left-color: #c4906b; }
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h2 .ico {
+    font-size: 20px;
+  }
+  h3 {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #8a7a68;
+    margin-top: 14px;
+    margin-bottom: 8px;
+  }
+  h3:first-child { margin-top: 0; }
+  ul { list-style: none; }
+  li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    border-bottom: 1px solid #f0ebe2;
+    font-size: 15px;
+  }
+  li:last-child { border-bottom: none; }
+  li::before {
+    content: "☐";
+    position: absolute;
+    left: 4px;
+    top: 7px;
+    font-size: 18px;
+    color: #b89968;
+  }
+  li.tip::before { content: "💡"; font-size: 14px; top: 9px; }
+  li.warn::before { content: "⚠"; color: #c4906b; }
+
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0ebe2;
+  }
+  .timeline-item:last-child { border-bottom: none; }
+  .time {
+    font-weight: 700;
+    color: #6b8e7a;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+  .task-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .task-desc {
+    font-size: 13px;
+    color: #666;
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .setting-card {
+    background: #faf7f1;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid #ede5d6;
+  }
+  .setting-card h4 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #8b6b8e;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px dotted #e8ddc8;
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row .label { color: #666; }
+  .setting-row .val { font-weight: 600; color: #1a1a1a; font-variant-numeric: tabular-nums; }
+
+  .wireframe {
+    background: #faf7f1;
+    border: 2px dashed #c8b89a;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 10px 0;
+    position: relative;
+  }
+  .wf-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #8a7a68;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .formation {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 4px;
+    min-height: 80px;
+    margin: 14px 0 8px;
+  }
+  .person {
+    background: #b89968;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid #9a7d50;
+  }
+  .person.tall { width: 38px; height: 58px; }
+  .person.med { width: 34px; height: 50px; }
+  .person.short { width: 30px; height: 42px; }
+  .person.child { width: 26px; height: 36px; background: #d4a574; border-color: #b08355; }
+  .person.star { background: #8b6b8e; border-color: #6d5170; width: 40px; height: 60px; }
+  .formation-label {
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
+  }
+  .camera-pos {
+    text-align: center;
+    font-size: 24px;
+    margin-top: 6px;
+  }
+
+  .church-layout {
+    background: #faf7f1;
+    border-radius: 8px;
+    padding: 16px;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    white-space: pre;
+    overflow-x: auto;
+    color: #4a4a4a;
+    border: 1px solid #ede5d6;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dotted #e8ddc8;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    display: inline-block;
+  }
+
+  .tip-box {
+    background: #fef8e8;
+    border-left: 3px solid #d4a574;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: #6b5834;
+  }
+  .tip-box strong { color: #8b6b2c; }
+
+  section.solo { border-left-color: #6b7a8e; }
+
+  .pose-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .pose-card {
+    background: #faf7f1;
+    border: 1px solid #ede5d6;
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .pose-svg {
+    width: 100%;
+    height: 120px;
+    display: block;
+    margin: 0 auto 8px;
+  }
+  .pose-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 3px;
+  }
+  .pose-desc {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.35;
+  }
+
+  .framing-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .framing-card {
+    background: #faf7f1;
+    border: 1px solid #ede5d6;
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+  }
+  .framing-svg {
+    width: 100%;
+    height: 110px;
+  }
+  .framing-label {
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 6px;
+    color: #1a1a1a;
+  }
+  .framing-desc {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  .light-diagram {
+    background: #faf7f1;
+    border: 1px solid #ede5d6;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 10px;
+  }
+  .light-diagram svg {
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+  }
+
+  section.flash { border-left-color: #d4a574; }
+
+  .flash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .flash-card {
+    background: #faf7f1;
+    border: 1px solid #ede5d6;
+    border-radius: 10px;
+    padding: 14px;
+    position: relative;
+  }
+  .flash-card.bad {
+    background: #fdf0ed;
+    border-color: #e8c4bc;
+  }
+  .flash-card.good {
+    background: #f0f5ed;
+    border-color: #c8dcc0;
+  }
+  .flash-card svg {
+    width: 100%;
+    height: 140px;
+    display: block;
+  }
+  .flash-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .flash-card-desc {
+    font-size: 12px;
+    color: #555;
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge.bad { background: #d4756b; color: white; }
+  .badge.good { background: #6b8e7a; color: white; }
+  .badge.ok { background: #d4a574; color: white; }
+
+  .decision-guide {
+    background: #faf7f1;
+    border: 1px solid #ede5d6;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 14px;
+  }
+  .decision-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dotted #e8ddc8;
+    font-size: 13px;
+  }
+  .decision-row:last-child { border-bottom: none; }
+  .decision-row .situation { color: #555; }
+  .decision-row .arrow { color: #d4a574; font-weight: 700; }
+  .decision-row .action { font-weight: 700; color: #1a1a1a; }
+
+  @media (max-width: 480px) {
+    .settings-grid { grid-template-columns: 1fr; }
+    .timeline-item { grid-template-columns: 60px 1fr; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>📸 Konfirmation</h1>
+<p class="subtitle">Tjekskema, tidslinje & opstillinger — Canon R6 + 24-70L + 580EX</p>
+
+<!-- DAGEN FØR -->
+<section>
+  <h2><span class="ico">🎒</span> Dagen før – klargøring</h2>
+  <ul>
+    <li>Lad kamerabatterier op (mindst 2 stk)</li>
+    <li>Lad/udskift AA-batterier i flash + 4 stk ekstra i tasken</li>
+    <li>Formatér alle hukommelseskort i kameraet</li>
+    <li>Pak mindst 2 hukommelseskort (gerne 3)</li>
+    <li>Rens front-linse og sensor med blæser</li>
+    <li>Tør flashens kontakter af med blød klud</li>
+    <li>Tjek at remmen sidder fast</li>
+    <li>Pak: bounce-kort/hvidt pap, elastik, mikrofiberklud</li>
+    <li>Tal med familien om shot-list (hvem skal med på gruppebilleder)</li>
+    <li>Spørg præsten om flash i kirken er OK</li>
+    <li>Læg kamera i tasken – klar ved døren</li>
+  </ul>
+</section>
+
+<!-- TIDSLINJE -->
+<section class="timeline">
+  <h2><span class="ico">⏰</span> Tidslinje på dagen</h2>
+
+  <div class="timeline-item">
+    <div class="time">−90 min</div>
+    <div>
+      <div class="task-title">Hjemmefra / hos konfirmanden</div>
+      <div class="task-desc">"Getting ready"-billeder: sløjfen der bindes, sminke, kjolen der hænger, nervøse smil. Naturligt lys fra vindue.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">−45 min</div>
+    <div>
+      <div class="task-title">Ankomst ved kirken</div>
+      <div class="task-desc">Scoute kirken. Hvor er lyset? Hvor står alteret? Find din position. Test ét billede ved 1/160, f/2.8, ISO Auto.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">−15 min</div>
+    <div>
+      <div class="task-title">Folk ankommer</div>
+      <div class="task-desc">Uformelle billeder udenfor: hilsner, kram, bedsteforældre der ankommer. Lydløs lukker AN.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">0:00</div>
+    <div>
+      <div class="task-title">Ceremonien starter</div>
+      <div class="task-desc">Ingen flash. f/2.8, 1/160+, Auto ISO. Skyd: indgang, salme, velsignelsen, forældrenes ansigter, udgang.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">+60 min</div>
+    <div>
+      <div class="task-title">Ud af kirken – gruppebilleder</div>
+      <div class="task-desc">Gå STRAKS i gang. Find skygge. Samler-person henter folk. Start med hele selskabet.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">+90 min</div>
+    <div>
+      <div class="task-title">Soloportrætter af konfirmanden</div>
+      <div class="task-desc">5-10 min i blødt lys. f/2.8, 70mm. Bed dem bevæge sig – gå, grin, kig væk, kig tilbage.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">Festen</div>
+    <div>
+      <div class="task-title">Ankomst til festlokale</div>
+      <div class="task-desc">Detaljer: borddækning, navneskilte, kagen, blomster, gaver. Før gæsterne sætter sig.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">Under mad</div>
+    <div>
+      <div class="task-title">Taler & stemning</div>
+      <div class="task-desc">Flash bounced i loft, TTL −⅔ EV. Fang reaktioner – konfirmandens ansigt under talerne, ikke kun taleren.</div>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="time">Slut</div>
+    <div>
+      <div class="task-title">Backup samme aften</div>
+      <div class="task-desc">Overfør til computer + ekstern disk. Formatér IKKE kortet endnu.</div>
+    </div>
+  </div>
+</section>
+
+<!-- INDSTILLINGER -->
+<section class="settings">
+  <h2><span class="ico">⚙️</span> Indstillinger – hurtig oversigt</h2>
+
+  <div class="settings-grid">
+    <div class="setting-card">
+      <h4>Kirke (intet flash)</h4>
+      <div class="setting-row"><span class="label">Mode</span><span class="val">M + Auto ISO</span></div>
+      <div class="setting-row"><span class="label">Blænde</span><span class="val">f/2.8</span></div>
+      <div class="setting-row"><span class="label">Lukketid</span><span class="val">1/160–1/200</span></div>
+      <div class="setting-row"><span class="label">ISO loft</span><span class="val">12800</span></div>
+      <div class="setting-row"><span class="label">Lukker</span><span class="val">Lydløs (elek.)</span></div>
+      <div class="setting-row"><span class="label">AF</span><span class="val">Servo + Eye</span></div>
+      <div class="setting-row"><span class="label">WB</span><span class="val">Auto el. 4000K</span></div>
+    </div>
+
+    <div class="setting-card">
+      <h4>Gruppebilleder ude</h4>
+      <div class="setting-row"><span class="label">Mode</span><span class="val">Av el. M</span></div>
+      <div class="setting-row"><span class="label">Blænde</span><span class="val">f/5.6 (grupper)</span></div>
+      <div class="setting-row"><span class="label">Lukketid</span><span class="val">1/200+</span></div>
+      <div class="setting-row"><span class="label">ISO</span><span class="val">100–400</span></div>
+      <div class="setting-row"><span class="label">Flash</span><span class="val">Fill, −1 EV</span></div>
+      <div class="setting-row"><span class="label">Fokus</span><span class="val">På konfirmandens øje</span></div>
+      <div class="setting-row"><span class="label">Antal/pose</span><span class="val">Min. 3</span></div>
+    </div>
+
+    <div class="setting-card">
+      <h4>Portræt konfirmand</h4>
+      <div class="setting-row"><span class="label">Brændvidde</span><span class="val">50–70mm</span></div>
+      <div class="setting-row"><span class="label">Blænde</span><span class="val">f/2.8–f/4</span></div>
+      <div class="setting-row"><span class="label">Lukketid</span><span class="val">1/250+</span></div>
+      <div class="setting-row"><span class="label">ISO</span><span class="val">100–800</span></div>
+      <div class="setting-row"><span class="label">Lys</span><span class="val">Blød skygge</span></div>
+      <div class="setting-row"><span class="label">AF</span><span class="val">Eye Detection</span></div>
+    </div>
+
+    <div class="setting-card">
+      <h4>Fest indendørs m. flash</h4>
+      <div class="setting-row"><span class="label">Mode</span><span class="val">M</span></div>
+      <div class="setting-row"><span class="label">Blænde</span><span class="val">f/4</span></div>
+      <div class="setting-row"><span class="label">Lukketid</span><span class="val">1/125–1/160</span></div>
+      <div class="setting-row"><span class="label">ISO</span><span class="val">800–1600</span></div>
+      <div class="setting-row"><span class="label">Flash</span><span class="val">TTL, bounce op</span></div>
+      <div class="setting-row"><span class="label">Flash komp.</span><span class="val">−⅔ til −1 EV</span></div>
+      <div class="setting-row"><span class="label">Bounce-kort</span><span class="val">Oppe</span></div>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>💡 Flash-trick:</strong> Ved mørke/farvede lofter peg flashen skråt BAGUD over din skulder mod en hvid væg i stedet for op. Lyset kommer tilbage forfra og bliver blødt.
+  </div>
+</section>
+
+<!-- FLASH-TEKNIK -->
+<section class="flash">
+  <h2><span class="ico">⚡</span> Flash-teknik – indendørs & udendørs</h2>
+
+  <p style="font-size:14px; color:#555; margin-bottom:14px;">
+    <strong>Grundregel:</strong> Aldrig direkte flash forfra. Få lyset til at ramme noget hvidt først (loft/væg/bounce-kort) så det bliver stort og blødt.
+  </p>
+
+  <h3>Indendørs – bounce-retninger</h3>
+  <div class="flash-grid">
+
+    <!-- Direct flash - BAD -->
+    <div class="flash-card bad">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Ceiling line -->
+        <line x1="5" y1="10" x2="215" y2="10" stroke="#aaa" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="110" y="7" text-anchor="middle" font-size="8" fill="#999">LOFT</text>
+        <!-- Camera + flash -->
+        <g transform="translate(40, 75)">
+          <rect x="-14" y="-6" width="28" height="16" rx="2" fill="#444"/>
+          <circle cx="0" cy="2" r="5" fill="#222"/>
+          <!-- Flash on top -->
+          <rect x="-8" y="-16" width="16" height="10" rx="2" fill="#d4a574"/>
+        </g>
+        <!-- Direct harsh light -->
+        <g stroke="#d4756b" stroke-width="2" fill="none">
+          <line x1="55" y1="70" x2="135" y2="70" marker-end="url(#arrR)"/>
+          <line x1="55" y1="65" x2="130" y2="60" marker-end="url(#arrR)" opacity="0.6"/>
+          <line x1="55" y1="75" x2="130" y2="80" marker-end="url(#arrR)" opacity="0.6"/>
+        </g>
+        <!-- Person -->
+        <g transform="translate(165, 80)">
+          <circle cx="0" cy="-10" r="10" fill="#8b6b8e"/>
+          <path d="M -10 0 L 10 0 L 12 40 L -12 40 Z" fill="#8b6b8e"/>
+          <!-- Harsh shadow on wall -->
+          <ellipse cx="18" cy="45" rx="15" ry="3" fill="#333" opacity="0.5"/>
+        </g>
+        <!-- Red X -->
+        <g stroke="#c44" stroke-width="3" stroke-linecap="round">
+          <line x1="100" y1="100" x2="120" y2="120"/>
+          <line x1="120" y1="100" x2="100" y2="120"/>
+        </g>
+        <defs>
+          <marker id="arrR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#d4756b"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="flash-card-title"><span class="badge bad">Undgå</span> Direkte flash</div>
+      <div class="flash-card-desc">Hård skygge, flade ansigter, røde øjne. Ligner 90'er-paparazzi.</div>
+    </div>
+
+    <!-- Bounce up - BEST -->
+    <div class="flash-card good">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Ceiling -->
+        <line x1="5" y1="10" x2="215" y2="10" stroke="#888" stroke-width="1.5"/>
+        <text x="110" y="7" text-anchor="middle" font-size="8" fill="#6b8e7a" font-weight="700">HVIDT LOFT</text>
+        <!-- Camera + flash angled up -->
+        <g transform="translate(40, 75)">
+          <rect x="-14" y="-6" width="28" height="16" rx="2" fill="#444"/>
+          <circle cx="0" cy="2" r="5" fill="#222"/>
+          <!-- Flash angled up -->
+          <g transform="rotate(-60)">
+            <rect x="-8" y="-16" width="16" height="10" rx="2" fill="#d4a574"/>
+          </g>
+        </g>
+        <!-- Light up to ceiling -->
+        <line x1="45" y1="60" x2="95" y2="15" stroke="#f4c95d" stroke-width="2" marker-end="url(#arrG1)"/>
+        <!-- Spread from ceiling down -->
+        <g stroke="#f4c95d" stroke-width="1.5" fill="none" opacity="0.7">
+          <line x1="100" y1="15" x2="140" y2="75"/>
+          <line x1="110" y1="15" x2="160" y2="80"/>
+          <line x1="120" y1="15" x2="175" y2="90"/>
+          <line x1="90" y1="15" x2="150" y2="95"/>
+        </g>
+        <!-- Person with soft light -->
+        <g transform="translate(165, 80)">
+          <circle cx="0" cy="-10" r="10" fill="#8b6b8e"/>
+          <path d="M 5 -18 Q 10 -10 7 0" stroke="#f4c95d" stroke-width="2" fill="none" opacity="0.8"/>
+          <path d="M -10 0 L 10 0 L 12 40 L -12 40 Z" fill="#8b6b8e"/>
+        </g>
+        <!-- Bounce card indicator -->
+        <text x="60" y="110" font-size="8" fill="#6b8e7a">+ bounce-kort ud</text>
+        <defs>
+          <marker id="arrG1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4c95d"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="flash-card-title"><span class="badge good">Bedst</span> Bounce op i loft</div>
+      <div class="flash-card-desc">Hvidt loft, under 3,5m. Vip 60–75° op. Slå bounce-kort ud for catchlight.</div>
+    </div>
+
+    <!-- Bounce back -->
+    <div class="flash-card good">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Wall behind -->
+        <line x1="5" y1="5" x2="5" y2="135" stroke="#888" stroke-width="2"/>
+        <text x="30" y="20" font-size="8" fill="#6b8e7a" font-weight="700">HVID VÆG</text>
+        <text x="30" y="30" font-size="8" fill="#6b8e7a" font-weight="700">bag dig</text>
+        <!-- Camera + flash angled back/up -->
+        <g transform="translate(70, 80)">
+          <rect x="-14" y="-6" width="28" height="16" rx="2" fill="#444"/>
+          <circle cx="0" cy="2" r="5" fill="#222"/>
+          <!-- Flash angled back and up -->
+          <g transform="rotate(-135)">
+            <rect x="-8" y="-16" width="16" height="10" rx="2" fill="#d4a574"/>
+          </g>
+        </g>
+        <!-- Light to wall behind -->
+        <line x1="65" y1="68" x2="20" y2="35" stroke="#f4c95d" stroke-width="2" marker-end="url(#arrG2)"/>
+        <!-- Light bouncing forward -->
+        <g stroke="#f4c95d" stroke-width="1.5" fill="none" opacity="0.7">
+          <line x1="20" y1="40" x2="160" y2="75"/>
+          <line x1="20" y1="55" x2="165" y2="85"/>
+          <line x1="20" y1="70" x2="170" y2="90"/>
+        </g>
+        <!-- Person -->
+        <g transform="translate(175, 82)">
+          <circle cx="0" cy="-10" r="10" fill="#8b6b8e"/>
+          <path d="M -8 -18 Q -12 -10 -10 0" stroke="#f4c95d" stroke-width="2" fill="none" opacity="0.8"/>
+          <path d="M -10 0 L 10 0 L 12 40 L -12 40 Z" fill="#8b6b8e"/>
+        </g>
+        <defs>
+          <marker id="arrG2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4c95d"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="flash-card-title"><span class="badge good">Smukt</span> Bounce bagud</div>
+      <div class="flash-card-desc">Højt/mørkt loft, men hvid væg bag dig. Vip 45° skråt bagud. Meget blødt lys.</div>
+    </div>
+
+    <!-- Diffuser -->
+    <div class="flash-card">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Camera + flash with diffuser -->
+        <g transform="translate(40, 75)">
+          <rect x="-14" y="-6" width="28" height="16" rx="2" fill="#444"/>
+          <circle cx="0" cy="2" r="5" fill="#222"/>
+          <!-- Flash with diffuser dome -->
+          <rect x="-8" y="-16" width="16" height="10" rx="2" fill="#d4a574"/>
+          <ellipse cx="0" cy="-18" rx="12" ry="6" fill="#fff" stroke="#d4a574" stroke-width="1.5" opacity="0.9"/>
+        </g>
+        <!-- Spread light in all directions -->
+        <g stroke="#f4c95d" stroke-width="1.2" fill="none" opacity="0.6">
+          <line x1="50" y1="55" x2="100" y2="30"/>
+          <line x1="55" y1="60" x2="130" y2="50"/>
+          <line x1="60" y1="65" x2="150" y2="75"/>
+          <line x1="55" y1="70" x2="145" y2="90"/>
+          <line x1="50" y1="75" x2="120" y2="100"/>
+          <line x1="45" y1="80" x2="95" y2="110"/>
+        </g>
+        <!-- Person -->
+        <g transform="translate(165, 82)">
+          <circle cx="0" cy="-10" r="10" fill="#8b6b8e"/>
+          <path d="M -10 0 L 10 0 L 12 40 L -12 40 Z" fill="#8b6b8e"/>
+        </g>
+        <text x="60" y="125" font-size="8" fill="#888" font-style="italic">spreder i alle retninger</text>
+      </svg>
+      <div class="flash-card-title"><span class="badge ok">OK</span> Diffuser (Omnibounce)</div>
+      <div class="flash-card-desc">Nødløsning når intet kan bounce'es. Udendørs om aftenen, højt/mørkt loft uden væg bag.</div>
+    </div>
+
+  </div>
+
+  <div class="tip-box">
+    <strong>⚙️ Flash-indstillinger (samme indendørs):</strong> ETTL mode · Flash-kompensation <strong>−⅔ til −1 EV</strong> · Kamera: M, f/4, 1/125, ISO 800–1600. Lukketid + ISO styrer stemningslyset, flashen lyser bare ansigterne op.
+  </div>
+
+  <h3>Udendørs – fill flash i sollys</h3>
+  <p style="font-size:14px; color:#555; margin-bottom:10px;">
+    "Fill" betyder at flashen kun fylder skygger op – ikke overtager lyset. Solen er hovedlyset, flashen støtter.
+  </p>
+
+  <div class="flash-grid">
+
+    <!-- Harsh sun no fill - BAD -->
+    <div class="flash-card bad">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sun top -->
+        <circle cx="110" cy="18" r="13" fill="#f4c95d"/>
+        <g stroke="#f4c95d" stroke-width="1.5">
+          <line x1="110" y1="0" x2="110" y2="-2"/>
+          <line x1="110" y1="40" x2="110" y2="36"/>
+          <line x1="130" y1="18" x2="135" y2="18"/>
+          <line x1="85" y1="18" x2="90" y2="18"/>
+        </g>
+        <!-- Harsh light down -->
+        <g stroke="#f4a524" stroke-width="2" fill="none">
+          <line x1="108" y1="32" x2="108" y2="60" marker-end="url(#arrB1)"/>
+          <line x1="100" y1="32" x2="95" y2="60" marker-end="url(#arrB1)"/>
+          <line x1="120" y1="32" x2="125" y2="60" marker-end="url(#arrB1)"/>
+        </g>
+        <!-- Person with harsh shadows under eyes -->
+        <g transform="translate(110, 75)">
+          <circle cx="0" cy="0" r="14" fill="#8b6b8e"/>
+          <!-- Dark shadows under eyes -->
+          <ellipse cx="-4" cy="2" rx="2.5" ry="1.5" fill="#2a2a2a"/>
+          <ellipse cx="4" cy="2" rx="2.5" ry="1.5" fill="#2a2a2a"/>
+          <!-- Shadow under chin -->
+          <path d="M -6 10 Q 0 14 6 10" stroke="#2a2a2a" stroke-width="2" fill="none"/>
+          <path d="M -12 14 L 12 14 L 16 50 L -16 50 Z" fill="#8b6b8e"/>
+          <!-- Strong ground shadow -->
+          <ellipse cx="0" cy="52" rx="20" ry="3" fill="#2a2a2a" opacity="0.6"/>
+        </g>
+        <text x="110" y="135" text-anchor="middle" font-size="9" fill="#c44" font-weight="700">mørke øjen-skygger + knebne øjne</text>
+        <defs>
+          <marker id="arrB1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4a524"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="flash-card-title"><span class="badge bad">Undgå</span> Midt-sol uden fill</div>
+      <div class="flash-card-desc">Hård middagssol = "rovfugle-øjne" med mørke skygger. Dagens dårligste lys.</div>
+    </div>
+
+    <!-- Sun + fill flash -->
+    <div class="flash-card good">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sun top -->
+        <circle cx="110" cy="18" r="13" fill="#f4c95d"/>
+        <g stroke="#f4c95d" stroke-width="1.5">
+          <line x1="110" y1="0" x2="110" y2="-2"/>
+          <line x1="130" y1="18" x2="135" y2="18"/>
+          <line x1="85" y1="18" x2="90" y2="18"/>
+        </g>
+        <!-- Sun light down -->
+        <line x1="110" y1="32" x2="110" y2="60" stroke="#f4a524" stroke-width="2" marker-end="url(#arrG3)"/>
+        <!-- Camera + flash at bottom -->
+        <g transform="translate(40, 100)">
+          <rect x="-12" y="-5" width="24" height="14" rx="2" fill="#444"/>
+          <circle cx="0" cy="2" r="4" fill="#222"/>
+          <rect x="-7" y="-13" width="14" height="8" rx="2" fill="#d4a574"/>
+        </g>
+        <!-- Fill light to face -->
+        <line x1="50" y1="90" x2="95" y2="78" stroke="#f4c95d" stroke-width="1.8" stroke-dasharray="3,2" marker-end="url(#arrG3)" opacity="0.8"/>
+        <!-- Person with soft even light -->
+        <g transform="translate(110, 78)">
+          <circle cx="0" cy="0" r="14" fill="#8b6b8e"/>
+          <!-- Soft eyes -->
+          <circle cx="-4" cy="-1" r="1.3" fill="#fff"/>
+          <circle cx="4" cy="-1" r="1.3" fill="#fff"/>
+          <!-- Smile -->
+          <path d="M -4 5 Q 0 8 4 5" stroke="#fff" stroke-width="1.3" fill="none"/>
+          <path d="M -12 14 L 12 14 L 16 50 L -16 50 Z" fill="#8b6b8e"/>
+          <!-- Softer ground shadow -->
+          <ellipse cx="0" cy="52" rx="18" ry="2" fill="#666" opacity="0.3"/>
+        </g>
+        <text x="40" y="132" font-size="8" fill="#6b8e7a" font-weight="700">−1 EV fill</text>
+        <defs>
+          <marker id="arrG3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4c95d"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="flash-card-title"><span class="badge good">Godt</span> Sol + fill flash</div>
+      <div class="flash-card-desc">Flash direkte forfra (ja, undtagelsesvis!) ved −1 EV. Lyser skygger under øjne og hage op.</div>
+    </div>
+
+    <!-- Backlit + fill -->
+    <div class="flash-card good">
+      <svg viewBox="0 0 220 140" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sun behind person -->
+        <circle cx="175" cy="30" r="12" fill="#f4c95d"/>
+        <g stroke="#f4c95d" stroke-width="1.5">
+          <line x1="175" y1="12" x2="175" y2="14"/>
+          <line x1="193" y1="30" x2="196" y2="30"/>
+          <line x1="160" y1="18" x2="162" y2="20"/>
+        </g>
+        <text x="175" y="52" text-anchor="middle" font-size="8" fill="#8b6b2c" font-weight="700">SOL BAG</text>
+        <!-- Rim light on person from behind -->
+        <!-- Camera + flash -->
+        <g transform="translate(40, 85)">
+          <rect x="-12" y="-5" width="24" height="14" rx="2" fill="#444"/>
+          <circle cx="0" cy="2" r="4" fill="#222"/>
+          <rect x="-7" y="-13" width="14" height="8" rx="2" fill="#d4a574"/>
+        </g>
+        <!-- Fill light -->
+        <line x1="50" y1="75" x2="100" y2="70" stroke="#f4c95d" stroke-width="1.8" stroke-dasharray="3,2" marker-end="url(#arrG4)"/>
+        <!-- Person with rim light from sun -->
+        <g transform="translate(120, 75)">
+          <circle cx="0" cy="0" r="13" fill="#8b6b8e"/>
+          <!-- Rim light on back of head -->
+          <path d="M 8 -10 Q 14 0 10 12" stroke="#f4c95d" stroke-width="3" fill="none" opacity="0.9"/>
+          <!-- Lit face -->
+          <circle cx="-4" cy="-1" r="1.3" fill="#fff"/>
+          <circle cx="4" cy="-1" r="1.3" fill="#fff"/>
+          <path d="M -4 5 Q 0 8 4 5" stroke="#fff" stroke-width="1.3" fill="none"/>
+          <path d="M -11 12 L 11 12 L 14 50 L -14 50 Z" fill="#8b6b8e"/>
+          <path d="M 9 0 L 14 50" stroke="#f4c95d" stroke-width="2" fill="none" opacity="0.7"/>
+        </g>
+        <text x="110" y="132" text-anchor="middle" font-size="8" fill="#6b8e7a" font-weight="700">gyldent hårlys + lyst ansigt</text>
+        <defs>
+          <marker id="arrG4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4c95d"/>
+          </marker>
+        </defs>
+      </svg>
+      <div class="flash-card-title"><span class="badge good">Smukkest</span> Modlys + fill</div>
+      <div class="flash-card-desc">Sen eftermiddag, sol BAG konfirmanden. Fill-flash forfra lyser ansigt op. Klassisk look.</div>
+    </div>
+
+  </div>
+
+  <h3>Indstillinger til fill flash udendørs</h3>
+  <div class="settings-grid">
+    <div class="setting-card">
+      <h4>Hård middagssol</h4>
+      <div class="setting-row"><span class="label">Mode</span><span class="val">Av eller M</span></div>
+      <div class="setting-row"><span class="label">Blænde</span><span class="val">f/4–f/5.6</span></div>
+      <div class="setting-row"><span class="label">Lukketid</span><span class="val">1/200 (sync max)</span></div>
+      <div class="setting-row"><span class="label">ISO</span><span class="val">100–200</span></div>
+      <div class="setting-row"><span class="label">Flash</span><span class="val">ETTL, direkte</span></div>
+      <div class="setting-row"><span class="label">Flash komp.</span><span class="val">−1 til −1⅓ EV</span></div>
+      <div class="setting-row"><span class="label">Diffuser</span><span class="val">Ja (Omnibounce)</span></div>
+    </div>
+    <div class="setting-card">
+      <h4>Modlys (sol bag)</h4>
+      <div class="setting-row"><span class="label">Mode</span><span class="val">M</span></div>
+      <div class="setting-row"><span class="label">Blænde</span><span class="val">f/2.8–f/4</span></div>
+      <div class="setting-row"><span class="label">Lukketid</span><span class="val">1/200</span></div>
+      <div class="setting-row"><span class="label">ISO</span><span class="val">100–400</span></div>
+      <div class="setting-row"><span class="label">Flash</span><span class="val">ETTL, direkte</span></div>
+      <div class="setting-row"><span class="label">Flash komp.</span><span class="val">−⅔ EV</span></div>
+      <div class="setting-row"><span class="label">Expon.</span><span class="val">På ansigt, ikke sol</span></div>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>💡 Hvorfor fill flash direkte forfra er OK udendørs:</strong> Solen er hovedlyskilden og laver skyggerne. Flashen fylder bare de skygger op – den er ikke stærk nok til at overtage solen ved −1 EV. Det er kun indendørs at direkte flash bliver grimt, fordi flashen ér hovedlyset.
+  </div>
+
+  <h3>Beslutnings-guide</h3>
+  <div class="decision-guide">
+    <div class="decision-row">
+      <div class="situation">Hvidt loft, normal højde</div>
+      <div class="arrow">→</div>
+      <div class="action">Vip 60–75° op + bounce-kort ud</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Mørkt/højt loft + hvid væg bag dig</div>
+      <div class="arrow">→</div>
+      <div class="action">Vip 45° skråt bagud</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Farvet loft (træ, rødt)</div>
+      <div class="arrow">→</div>
+      <div class="action">Kun bounce-kort (ikke op i loft)</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Intet at bounce imod</div>
+      <div class="arrow">→</div>
+      <div class="action">Diffuser (Omnibounce)</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Hård middagssol udendørs</div>
+      <div class="arrow">→</div>
+      <div class="action">Fill flash direkte, −1 EV</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Sen eftermiddag, sol bag</div>
+      <div class="arrow">→</div>
+      <div class="action">Fill flash −⅔ EV, eksponér ansigt</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Overskyet udendørs</div>
+      <div class="arrow">→</div>
+      <div class="action">Ingen flash – himlen er allerede diffuser</div>
+    </div>
+    <div class="decision-row">
+      <div class="situation">Åben skygge (under træ)</div>
+      <div class="arrow">→</div>
+      <div class="action">Evt. fill −1½ EV for catchlight</div>
+    </div>
+  </div>
+
+  <h3>580EX – hurtigt på knapperne</h3>
+  <ul>
+    <li class="tip"><strong>Mode:</strong> tryk til "ETTL" vises</li>
+    <li class="tip"><strong>Flash-kompensation:</strong> +/− knap → drej hjulet</li>
+    <li class="tip"><strong>Vip hovedet:</strong> tryk grå udløser på siden af hovedet, vip derefter frit</li>
+    <li class="tip"><strong>Bounce-kort:</strong> skub den grå/sølv flap frem → den hvide plastik kommer med ud</li>
+    <li class="tip"><strong>Zoom:</strong> auto er fint. Manuel 50mm giver mere kraft ved bounce</li>
+    <li class="warn">Max sync speed på R6 = 1/200. Hurtigere → sort streg i billedet (medmindre HSS er tændt)</li>
+  </ul>
+
+</section>
+
+<!-- OPSTILLINGER / WIREFRAMES -->
+<section class="groups">
+  <h2><span class="ico">👥</span> Opstillinger – gruppebilleder</h2>
+
+  <h3>Rækkefølge (vigtig!)</h3>
+  <ul>
+    <li>1. Hele selskabet (få det overstået mens alle er der)</li>
+    <li>2. Hele familien + bedsteforældre</li>
+    <li>3. Konfirmand + forældre + søskende</li>
+    <li>4. Konfirmand + forældre</li>
+    <li>5. Konfirmand + mor, derefter + far</li>
+    <li>6. Konfirmand + bedsteforældre (hver side)</li>
+    <li>7. Konfirmand + søskende</li>
+    <li>8. Konfirmand solo (til sidst – varmet op)</li>
+  </ul>
+
+  <div class="wireframe">
+    <div class="wf-title">Opstilling 1 – Lille gruppe (4–5 pers)</div>
+    <div class="formation">
+      <div class="person tall">F</div>
+      <div class="person star">K</div>
+      <div class="person med">M</div>
+      <div class="person short">S</div>
+    </div>
+    <div class="formation-label">Konfirmanden (K) i centrum, forældre ved siden, søskende yderst</div>
+    <div class="camera-pos">📷 Kamera 2–3m væk, 70mm, f/4</div>
+  </div>
+
+  <div class="wireframe">
+    <div class="wf-title">Opstilling 2 – Mellem gruppe (6–10 pers), "V-form"</div>
+    <div class="formation">
+      <div class="person med">·</div>
+      <div class="person tall">·</div>
+      <div class="person tall">F</div>
+      <div class="person star">K</div>
+      <div class="person tall">M</div>
+      <div class="person tall">·</div>
+      <div class="person med">·</div>
+    </div>
+    <div class="formation-label">Højeste i midten bagved, aftagende ud til siderne → blød V-form</div>
+    <div class="camera-pos">📷 Kamera 4–5m væk, 35–50mm, f/5.6</div>
+  </div>
+
+  <div class="wireframe">
+    <div class="wf-title">Opstilling 3 – Stor gruppe (15+ pers), 2 rækker</div>
+    <div class="formation">
+      <div class="person tall">·</div>
+      <div class="person tall">·</div>
+      <div class="person tall">·</div>
+      <div class="person tall">·</div>
+      <div class="person tall">·</div>
+      <div class="person tall">·</div>
+      <div class="person tall">·</div>
+    </div>
+    <div class="formation" style="margin-top:-30px;">
+      <div class="person short">·</div>
+      <div class="person short">·</div>
+      <div class="person med">F</div>
+      <div class="person star">K</div>
+      <div class="person med">M</div>
+      <div class="person short">·</div>
+      <div class="person child">·</div>
+    </div>
+    <div class="formation-label">Bagerste række tæt bag forreste. Børn/lave forrest. Konfirmanden i midten foran.</div>
+    <div class="camera-pos">📷 Kamera 5–7m væk, 24–35mm, f/5.6–f/8, stå gerne lidt forhøjet</div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#8b6b8e;"></span>K = Konfirmand</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#b89968;"></span>F/M = Forældre</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#b89968;"></span>S = Søskende</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#d4a574;"></span>Børn</div>
+  </div>
+
+  <h3 style="margin-top:22px;">Poserings-fif</h3>
+  <ul>
+    <li class="tip">Bed folk stå TÆT – tættere end de selv synes. Skuldre rører</li>
+    <li class="tip">Drej alle 15° ind mod midten → mindre stift</li>
+    <li class="tip">Hænder: samlet foran eller ned langs siden – aldrig i lommen</li>
+    <li class="tip">"Træk vejret ind... og SMIL" – lige inden du trykker af</li>
+    <li class="tip">Tag 3–5 billeder pr. pose (en blinker altid)</li>
+    <li class="warn">Undgå direkte sol i ansigter – find skygge</li>
+  </ul>
+</section>
+
+<!-- SOLOPORTRÆT -->
+<section class="solo">
+  <h2><span class="ico">⭐</span> Soloportræt af konfirmanden</h2>
+
+  <p style="font-size:14px; color:#555; margin-bottom:14px;">
+    Dette er <em>dét</em> billede der hænger på væggen i mange år. Brug 10–15 min. Tag det <strong>efter</strong> gruppebillederne – de er varmet op og afslappede. Træk dem væk fra gæsterne for ro.
+  </p>
+
+  <h3>Lys – start altid her</h3>
+  <div class="light-diagram">
+    <svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+      <!-- Sun -->
+      <circle cx="340" cy="35" r="18" fill="#f4c95d"/>
+      <g stroke="#f4c95d" stroke-width="2">
+        <line x1="340" y1="10" x2="340" y2="2"/>
+        <line x1="340" y1="68" x2="340" y2="60"/>
+        <line x1="365" y1="35" x2="372" y2="35"/>
+        <line x1="315" y1="35" x2="308" y2="35"/>
+        <line x1="358" y1="17" x2="363" y2="12"/>
+        <line x1="322" y1="53" x2="317" y2="58"/>
+      </g>
+      <text x="340" y="85" text-anchor="middle" font-size="10" fill="#8b6b2c" font-weight="700">SOL</text>
+
+      <!-- Person -->
+      <g transform="translate(200, 70)">
+        <circle cx="0" cy="0" r="14" fill="#8b6b8e"/>
+        <rect x="-14" y="14" width="28" height="38" rx="4" fill="#8b6b8e"/>
+        <!-- Rim light highlight -->
+        <path d="M 10 -10 Q 18 0 14 14" stroke="#f4c95d" stroke-width="3" fill="none" opacity="0.8"/>
+      </g>
+      <text x="200" y="135" text-anchor="middle" font-size="10" fill="#555" font-weight="600">KONFIRMAND</text>
+      <text x="200" y="148" text-anchor="middle" font-size="9" fill="#888">solen bag/til siden</text>
+
+      <!-- Camera -->
+      <g transform="translate(60, 75)">
+        <rect x="-14" y="-8" width="28" height="18" rx="3" fill="#444"/>
+        <circle cx="0" cy="1" r="6" fill="#222"/>
+        <circle cx="0" cy="1" r="3" fill="#666"/>
+      </g>
+      <text x="60" y="110" text-anchor="middle" font-size="10" fill="#555" font-weight="600">📷 DU</text>
+      <text x="60" y="123" text-anchor="middle" font-size="9" fill="#888">2–3m væk, 70mm</text>
+
+      <!-- Light direction arrow -->
+      <path d="M 320 50 L 225 68" stroke="#f4c95d" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.7" marker-end="url(#arrow)"/>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#f4c95d"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+  <ul>
+    <li class="tip"><strong>Bedste lys:</strong> åben skygge (under træ, skyggeside af bygning). Kig op – kan du se himmel uden direkte sol? Godt lys</li>
+    <li class="tip"><strong>Sen eftermiddag:</strong> sol BAG konfirmanden → gyldent rim-light i håret, blødt lys i ansigtet</li>
+    <li class="warn">Undgå plettet sol gennem blade → grimme pletter i ansigtet</li>
+    <li class="warn">Undgå direkte sol forfra → kniber øjne, hårde skygger</li>
+  </ul>
+
+  <h3>Billedudsnit – tag alle tre</h3>
+  <div class="framing-row">
+    <div class="framing-card">
+      <svg class="framing-svg" viewBox="0 0 80 110" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="76" height="106" rx="3" fill="none" stroke="#b89968" stroke-width="2" stroke-dasharray="4,3"/>
+        <!-- Full body figure -->
+        <circle cx="40" cy="22" r="8" fill="#8b6b8e"/>
+        <path d="M 32 30 L 48 30 L 52 60 L 48 90 L 44 105 L 36 105 L 32 90 L 28 60 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="framing-label">Helfigur</div>
+      <div class="framing-desc">Til tøj/kjole. 50mm, f/4</div>
+    </div>
+    <div class="framing-card">
+      <svg class="framing-svg" viewBox="0 0 80 110" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="76" height="106" rx="3" fill="none" stroke="#b89968" stroke-width="2" stroke-dasharray="4,3"/>
+        <!-- Half body -->
+        <circle cx="40" cy="30" r="12" fill="#8b6b8e"/>
+        <path d="M 28 42 L 52 42 L 58 80 L 58 110 L 22 110 L 22 80 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="framing-label">Halvfigur</div>
+      <div class="framing-desc">Sikrest valg. 70mm, f/2.8</div>
+    </div>
+    <div class="framing-card">
+      <svg class="framing-svg" viewBox="0 0 80 110" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="76" height="106" rx="3" fill="none" stroke="#b89968" stroke-width="2" stroke-dasharray="4,3"/>
+        <!-- Head + chest -->
+        <circle cx="40" cy="42" r="22" fill="#8b6b8e"/>
+        <path d="M 12 68 L 68 68 L 74 110 L 6 110 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="framing-label">Hoved/bryst</div>
+      <div class="framing-desc">Intimt. 70mm, f/2.8</div>
+    </div>
+  </div>
+  <ul style="margin-top:10px;">
+    <li class="tip">Tag både <strong>lodret</strong> (til print/væg) og <strong>vandret</strong> (til ramme over sofa)</li>
+    <li class="warn">Skær ALDRIG ved led (knæ, ankler, håndled). Skær midt på lår eller skinneben</li>
+    <li class="tip">Placér øjnene i øverste tredjedel af billedet</li>
+  </ul>
+
+  <h3>5 poseringer – variation der giver liv</h3>
+  <div class="pose-grid">
+    <div class="pose-card">
+      <svg class="pose-svg" viewBox="0 0 70 110" xmlns="http://www.w3.org/2000/svg">
+        <!-- Classic smile, facing camera -->
+        <circle cx="35" cy="28" r="11" fill="#8b6b8e"/>
+        <path d="M 32 26 Q 35 30 38 26" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <circle cx="31" cy="25" r="1.2" fill="#fff"/>
+        <circle cx="39" cy="25" r="1.2" fill="#fff"/>
+        <path d="M 22 40 L 48 40 L 54 85 L 52 105 L 18 105 L 16 85 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="pose-title">1. Klassisk smil</div>
+      <div class="pose-desc">Kigger ind i kamera, åben og glad</div>
+    </div>
+
+    <div class="pose-card">
+      <svg class="pose-svg" viewBox="0 0 70 110" xmlns="http://www.w3.org/2000/svg">
+        <!-- Serious, proud -->
+        <circle cx="35" cy="28" r="11" fill="#8b6b8e"/>
+        <line x1="32" y1="28" x2="38" y2="28" stroke="#fff" stroke-width="1.5"/>
+        <circle cx="31" cy="25" r="1.2" fill="#fff"/>
+        <circle cx="39" cy="25" r="1.2" fill="#fff"/>
+        <path d="M 22 40 L 48 40 L 54 85 L 52 105 L 18 105 L 16 85 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="pose-title">2. Alvorlig/stolt</div>
+      <div class="pose-desc">Ikke smil, rolig. Ser modent ud</div>
+    </div>
+
+    <div class="pose-card">
+      <svg class="pose-svg" viewBox="0 0 70 110" xmlns="http://www.w3.org/2000/svg">
+        <!-- Looking away, thoughtful -->
+        <circle cx="33" cy="28" r="11" fill="#8b6b8e"/>
+        <path d="M 28 26 Q 30 28 32 26" stroke="#fff" stroke-width="1.5" fill="none"/>
+        <circle cx="28" cy="25" r="1.2" fill="#fff"/>
+        <circle cx="32" cy="25" r="1.2" fill="#fff"/>
+        <path d="M 20 40 L 46 40 L 52 85 L 50 105 L 16 105 L 14 85 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="pose-title">3. Kigger væk</div>
+      <div class="pose-desc">Tænksom, drømmende vinkel</div>
+    </div>
+
+    <div class="pose-card">
+      <svg class="pose-svg" viewBox="0 0 70 110" xmlns="http://www.w3.org/2000/svg">
+        <!-- Laughing -->
+        <circle cx="35" cy="28" r="11" fill="#8b6b8e"/>
+        <path d="M 29 28 Q 35 34 41 28" stroke="#fff" stroke-width="1.8" fill="none"/>
+        <path d="M 29 24 L 32 26" stroke="#fff" stroke-width="1.5"/>
+        <path d="M 38 26 L 41 24" stroke="#fff" stroke-width="1.5"/>
+        <path d="M 22 40 L 48 40 L 56 85 L 54 105 L 16 105 L 14 85 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="pose-title">4. Grinende</div>
+      <div class="pose-desc">Ægte grin. Sig noget pjattet</div>
+    </div>
+
+    <div class="pose-card">
+      <svg class="pose-svg" viewBox="0 0 70 110" xmlns="http://www.w3.org/2000/svg">
+        <!-- Close-up / detail -->
+        <circle cx="35" cy="45" r="25" fill="#8b6b8e"/>
+        <path d="M 30 44 Q 35 48 40 44" stroke="#fff" stroke-width="1.8" fill="none"/>
+        <circle cx="29" cy="40" r="1.8" fill="#fff"/>
+        <circle cx="41" cy="40" r="1.8" fill="#fff"/>
+        <path d="M 10 78 L 60 78 L 66 110 L 4 110 Z" fill="#8b6b8e"/>
+      </svg>
+      <div class="pose-title">5. Detalje</div>
+      <div class="pose-desc">Tæt på – ansigt fra bryst og op</div>
+    </div>
+  </div>
+
+  <h3>Kropsholdning – de 5 ting der gør stort forskel</h3>
+  <ul>
+    <li class="tip"><strong>Krop 30–45° væk fra kamera</strong> – ikke lige på. Slanker, ser afslappet ud</li>
+    <li class="tip"><strong>Hoved drejet tilbage mod kamera</strong> – skaber klassisk S-kurve</li>
+    <li class="tip"><strong>Hage en anelse frem og ned</strong> – "skyd panden frem mod mig" → fjerner dobbelthage, fremhæver kæbe</li>
+    <li class="tip"><strong>Vægten på ét ben</strong> – giver naturlig skæv linje i kroppen</li>
+    <li class="tip"><strong>Hænder:</strong> i lommen (tommel ude), rør ved krave/hår/kæde, hold om blomst/salmebog, eller foldet foran</li>
+  </ul>
+
+  <h3>Sådan får du ægte smil (ikke "sig appelsin")</h3>
+  <ul>
+    <li class="tip">"Sig noget pinligt du har gjort i skolen" → ægte grin</li>
+    <li class="tip">"Kig væk... og nu tilbage på mig" → øjeblikket de møder linsen = guld</li>
+    <li class="tip">"Luk øjnene, træk vejret, åbn dem og kig på mig" → blødt levende udtryk</li>
+    <li class="tip">Lad dem gå mod dig mens du skyder 5–6 billeder i serie</li>
+    <li class="tip">Få en forælder til at stå bag dig og lave grimasser</li>
+  </ul>
+
+  <h3>Baggrunds-tjek (FØR du trykker af)</h3>
+  <ul>
+    <li class="warn">Ingen skilte, vejtavler, affaldsspande bag hovedet</li>
+    <li class="warn">Ingen grene eller stolper der "vokser ud af" hovedet</li>
+    <li class="tip">Simpel baggrund (hæk, mur, græs) → bedre end rodet</li>
+    <li class="tip">Mindst <strong>3 meter</strong> mellem konfirmand og baggrund → mere uskarp baggrund → filmisk look</li>
+  </ul>
+
+  <h3>Ekstra billeder folk glemmer</h3>
+  <ul>
+    <li>Bagfra – konfirmanden går væk gennem grusgang. Smukt til album-åbning</li>
+    <li>Forældre ude af fokus i baggrunden der kigger på konfirmanden</li>
+    <li>Tæt på hænder med ring/kors/kæde</li>
+    <li>Konfirmanden åbner en gave – det naturlige smil når de ser indholdet</li>
+  </ul>
+
+  <div class="tip-box">
+    <strong>⏱ Hvis du kun har 10 min:</strong> 1) Halvfigur + smil · 2) Samme alvorlig · 3) Helfigur (tøjet med) · 4) Nærbillede ansigt · 5) I bevægelse. Så har du dækket det vigtigste.
+  </div>
+</section>
+
+<!-- KIRKEN -->
+<section>
+  <h2><span class="ico">⛪</span> I kirken – positioner & must-shots</h2>
+
+  <div class="church-layout">      ╔═══════════════════════╗
+      ║       ALTER           ║
+      ║   ✝   [PRÆST]    ✝   ║
+      ║          🌟           ║  ← konfirmanden
+      ╠═══════════════════════╣
+      ║  ┃┃┃┃    ┃┃┃┃         ║
+      ║  ┃┃┃┃    ┃┃┃┃   📷 B  ║  ← sidegang (bevægelse)
+      ║  ┃┃┃┃    ┃┃┃┃         ║
+      ║  ┃┃┃┃    ┃┃┃┃         ║
+      ║  [familie forrest]    ║
+      ║  ┃┃┃┃    ┃┃┃┃         ║
+      ║                       ║
+      ║  📷 A (balkon/bagerst)║  ← vidvinkel oversigt
+      ╚═══════════════════════╝</div>
+
+  <h3>Must-shots i kirken</h3>
+  <ul>
+    <li>Konfirmanden kommer ind ad døren</li>
+    <li>Vidvinkel: hele kirken med konfirmanden ved alteret</li>
+    <li>Nærbillede: velsignelsen (hånd på hoved) — <strong>DET billede</strong></li>
+    <li>Konfirmanden med salmebog under sang</li>
+    <li>Forældrenes ansigter (stolthed, tårer)</li>
+    <li>Bedsteforældrene der ser på</li>
+    <li>Ringen/kors/gave der gives</li>
+    <li>Konfirmanden forlader kirken, hilser på folk</li>
+    <li>Tilbageblik: tom kirke efter ceremoni</li>
+  </ul>
+</section>
+
+<!-- FESTEN -->
+<section>
+  <h2><span class="ico">🎉</span> Festen – hvad du ikke må glemme</h2>
+
+  <h3>Detaljer (skydes FØR folk ankommer)</h3>
+  <ul>
+    <li>Borddækning – hele bordet fra enden</li>
+    <li>Navneskilte / menukort / bordkort</li>
+    <li>Blomsterdekorationer tæt på</li>
+    <li>Kagen (flere vinkler + detalje)</li>
+    <li>Gavebord</li>
+    <li>Konfirmandens plads / stol</li>
+  </ul>
+
+  <h3>Under festen</h3>
+  <ul>
+    <li>Konfirmanden ankommer / sætter sig ved bordet</li>
+    <li>Taler — både taler OG konfirmandens reaktion</li>
+    <li>Latter under sjove taler</li>
+    <li>Sang / sangark i hænderne</li>
+    <li>Skåle (glas der mødes)</li>
+    <li>Kagen skæres</li>
+    <li>Gaveåbning (hvis det sker offentligt)</li>
+    <li>Dans, leg, uformelle øjeblikke</li>
+    <li>Bedsteforældre med konfirmanden</li>
+    <li>Gruppebillede sent på aftenen (vennerne)</li>
+  </ul>
+
+  <div class="tip-box">
+    <strong>⚠ Husk:</strong> Spis og drik vand undervejs. Træt fotograf = dårlige billeder efter kl. 21. Sæt en timer hvis nødvendigt.
+  </div>
+</section>
+
+<!-- EFTER -->
+<section>
+  <h2><span class="ico">💾</span> Efter dagen</h2>
+  <ul>
+    <li>Backup samme aften: kort → computer + ekstern disk</li>
+    <li>Formatér IKKE hukommelseskortet før backup er verificeret</li>
+    <li>Lav hurtig udvælgelse dag 1–2 (stjernemarker favoritter)</li>
+    <li>Rediger først de bedste 30–50 (giv dem hurtigt)</li>
+    <li>Fuld redigering derefter</li>
+    <li>Lever i flere formater: web/telefon + print-opløsning</li>
+  </ul>
+</section>
+
+<p style="text-align:center; margin-top:30px; color:#8a7a68; font-size:13px; font-style:italic;">
+  Tillykke med dagen – og husk at trække vejret. Du har styr på det. 📷
+</p>
+
+</body>
+</html>
